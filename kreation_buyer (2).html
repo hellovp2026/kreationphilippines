@@ -1,0 +1,2784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Davao K-Pop Convention 2026 — Tickets</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --bg: #08020F;
+    --bg-soft: #150929;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-elev: #251142;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --text: #FFFFFF;
+    --text-muted: #B8A8D0;
+    --text-soft: #7A6890;
+    --brand: #FF1B6B;
+    --brand-2: #C724FF;
+    --accent: #00E5FF;
+    --success: #00E676;
+    --warn: #FFB300;
+    --danger: #FF1744;
+    --success-bg: rgba(0, 230, 118, 0.12);
+    --warn-bg: rgba(255, 179, 0, 0.14);
+    --danger-bg: rgba(255, 23, 68, 0.14);
+    --cyan-bg: rgba(0, 229, 255, 0.12);
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .font-display { font-family: 'Sora', ui-sans-serif; letter-spacing: -0.4px; }
+  .font-arcade { font-family: 'Bungee', ui-sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .grad-text {
+    background: linear-gradient(90deg, #FF1B6B 0%, #C724FF 50%, #00E5FF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .grad-text-tight {
+    background: linear-gradient(90deg, #FF1B6B, #C724FF);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-magenta {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(255, 27, 107, 0.35) 0%, transparent 70%);
+    top: -300px; left: -200px;
+    animation: floatA 16s ease-in-out infinite alternate;
+  }
+  .blob-cyan {
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.22) 0%, transparent 70%);
+    top: 30%; right: -200px;
+    animation: floatB 20s ease-in-out infinite alternate;
+  }
+  .blob-purple {
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(199, 36, 255, 0.2) 0%, transparent 70%);
+    bottom: -200px; left: 30%;
+    animation: floatC 22s ease-in-out infinite alternate;
+  }
+  @keyframes floatA { to { transform: translate(150px, 100px); } }
+  @keyframes floatB { to { transform: translate(-120px, 80px); } }
+  @keyframes floatC { to { transform: translate(-100px, -100px); } }
+
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 8px 30px rgba(255,27,107,0.4), 0 0 0 0 rgba(255,27,107,0.5); }
+    50% { box-shadow: 0 12px 44px rgba(255,27,107,0.55), 0 0 0 14px rgba(255,27,107,0); }
+  }
+  @keyframes scrollBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+  .anim-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  .anim-fade-in { animation: fadeIn 0.3s ease-out; }
+  .anim-spin { animation: spin 0.8s linear infinite; }
+  .anim-marquee { animation: marquee 28s linear infinite; }
+  .anim-pulse-glow { animation: pulse-glow 2.4s ease-in-out infinite; }
+  .anim-scroll-bounce { animation: scrollBounce 1.8s ease-in-out infinite; }
+
+  .lift {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, box-shadow 0.25s;
+  }
+  .lift:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 27, 107, 0.35) !important;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 30px rgba(255,27,107,0.12);
+  }
+
+  details.faq { border-bottom: 1px solid rgba(255,255,255,0.08); }
+  details.faq summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.2px;
+    color: var(--text);
+    user-select: none;
+    transition: padding-left 0.2s;
+  }
+  details.faq:hover summary { padding-left: 6px; }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after {
+    content: '+';
+    font-family: 'Sora', sans-serif;
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text-soft);
+    transition: transform 0.25s, color 0.2s;
+    flex-shrink: 0;
+  }
+  details.faq:hover summary::after { color: var(--brand); }
+  details.faq[open] summary::after { transform: rotate(45deg); color: var(--brand); }
+  details.faq .answer {
+    padding: 0 0 24px;
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.75;
+    max-width: 680px;
+  }
+
+  input, textarea, select {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text);
+    border: 1px solid var(--border);
+    transition: all 0.18s;
+    font-family: inherit;
+  }
+  input::placeholder, textarea::placeholder { color: var(--text-soft); }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--brand);
+    background: rgba(255, 27, 107, 0.06);
+    box-shadow: 0 0 0 4px rgba(255, 27, 107, 0.12);
+  }
+  select option { background: #190B30; color: var(--text); }
+
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+  /* Seat picker */
+  .seat {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600;
+    color: var(--text-soft);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .seat:hover:not(.seat-taken) {
+    background: rgba(255, 27, 107, 0.25);
+    border-color: var(--brand);
+    transform: scale(1.1);
+  }
+  .seat-selected {
+    background: linear-gradient(135deg, #FF1B6B, #C724FF) !important;
+    border-color: transparent !important;
+    color: white !important;
+    box-shadow: 0 0 12px rgba(255, 27, 107, 0.5);
+  }
+  .seat-taken {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.15);
+    cursor: not-allowed;
+  }
+
+  .checkbox {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border-strong);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .checkbox.checked {
+    background: linear-gradient(135deg, #FF1B6B, #C724FF);
+    border-color: transparent;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+// ============================================================
+// CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// KPH LOGO
+// ============================================================
+const KPHMark = ({ size = 32 }) => (
+  <div style={{
+    width: size, height: size, borderRadius: size * 0.22,
+    background: 'linear-gradient(135deg, #FF1B6B 0%, #C724FF 60%, #00E5FF 100%)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 6px 20px rgba(255, 27, 107, 0.4)', flexShrink: 0
+  }}>
+    <span className="font-arcade" style={{
+      color: 'white', fontSize: size * 0.36, letterSpacing: -0.5,
+      textShadow: '0 0 8px rgba(255,255,255,0.4)'
+    }}>K</span>
+  </div>
+);
+
+const KPHLogo = ({ size = 60 }) => (
+  <svg width={size * 2.6} height={size} viewBox="0 0 208 80" fill="none"
+       style={{ filter: 'drop-shadow(0 0 14px rgba(255, 27, 107, 0.55))' }}>
+    <defs>
+      <linearGradient id="bGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FF1B6B" />
+        <stop offset="55%" stopColor="#C724FF" />
+        <stop offset="100%" stopColor="#00E5FF" />
+      </linearGradient>
+    </defs>
+    <g fill="url(#bGrad)">
+      <rect x="0" y="5" width="16" height="70" />
+      <polygon points="16,25 62,5 62,19 16,39" />
+      <polygon points="16,41 62,61 62,75 16,55" />
+      <rect x="74" y="5" width="16" height="70" />
+      <rect x="74" y="5" width="60" height="14" />
+      <rect x="120" y="19" width="14" height="20" />
+      <rect x="74" y="33" width="60" height="14" />
+      <rect x="146" y="5" width="16" height="70" />
+      <rect x="192" y="5" width="16" height="70" />
+      <rect x="146" y="33" width="62" height="14" />
+    </g>
+  </svg>
+);
+
+// ============================================================
+// ICONS
+// ============================================================
+const Icon = ({ name, size = 16, strokeWidth = 2 }) => {
+  const svgs = {
+    check: <polyline points="20 6 9 17 4 12" />,
+    x: <g><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></g>,
+    arrow: <g><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></g>,
+    back: <g><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></g>,
+    plus: <g><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></g>,
+    minus: <line x1="5" y1="12" x2="19" y2="12" />,
+    ticket: <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />,
+    user: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></g>,
+    seat: <g><path d="M4 18v3" /><path d="M20 18v3" /><path d="M3 18h18v-3a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3z" /><path d="M5 12V5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v7" /></g>,
+    calendar: <g><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></g>,
+    mail: <g><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></g>,
+    phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />,
+    sparkles: <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z" />,
+    upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></g>,
+    pin: <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></g>,
+    clock: <g><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></g>,
+    alert: <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+    copy: <g><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></g>,
+    party: <path d="M5.8 11.3 2 22l10.7-3.79M4 3h.01M22 8h.01M15 2h.01M22 20h.01M22 2l-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10M22 13l-1.67-.67a2.31 2.31 0 0 0-2.4.53l-.07.07a2.31 2.31 0 0 1-2.4.53L14 13M11.5 8.66 6.5 14.5l-4-4 4.99-5.83" />,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {svgs[name] || null}
+    </svg>
+  );
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+const peso = (n) => '₱' + new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0 }).format(Number(n) || 0);
+
+const formatDate = (iso, opts = {}) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-PH', {
+    weekday: opts.weekday || undefined,
+    month: 'short',
+    day: 'numeric',
+    year: opts.year ? 'numeric' : undefined,
+  });
+};
+
+const formatTime = (t) => {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  const hh = parseInt(h);
+  const period = hh >= 12 ? 'PM' : 'AM';
+  const h12 = hh > 12 ? hh - 12 : (hh === 0 ? 12 : hh);
+  return h12 + (m && m !== '00' ? ':' + m : '') + ' ' + period;
+};
+
+// ============================================================
+// SHARED UI
+// ============================================================
+const Spinner = ({ size = 24, color = 'var(--brand)' }) => (
+  <div className="anim-spin" style={{
+    width: size, height: size, border: '2.5px solid rgba(255,255,255,0.08)',
+    borderTopColor: color, borderRadius: '50%'
+  }} />
+);
+
+const Card = ({ children, style }) => (
+  <div style={{
+    background: 'rgba(255, 255, 255, 0.03)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: 20, padding: 24,
+    border: '1px solid var(--border)',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+    ...style
+  }}>
+    {children}
+  </div>
+);
+
+const PrimaryBtn = ({ onClick, disabled, children, style, type = 'button' }) => (
+  <button onClick={onClick} disabled={disabled} type={type} style={{
+    padding: '13px 22px',
+    background: disabled ? 'rgba(255,255,255,0.06)'
+      : 'linear-gradient(135deg, #FF1B6B 0%, #C724FF 100%)',
+    color: disabled ? 'var(--text-soft)' : 'white',
+    border: 'none', borderRadius: 12,
+    fontSize: 14, fontWeight: 700, letterSpacing: 0.3,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    fontFamily: 'inherit',
+    boxShadow: disabled ? 'none' : '0 8px 24px rgba(255, 27, 107, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+    transition: 'transform 0.12s',
+    ...style
+  }}>
+    {children}
+  </button>
+);
+
+const GhostBtn = ({ onClick, children, style }) => (
+  <button onClick={onClick} style={{
+    padding: '12px 18px',
+    background: 'rgba(255,255,255,0.04)',
+    color: 'var(--text-muted)',
+    border: '1px solid var(--border)', borderRadius: 12,
+    fontSize: 13, fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 8,
+    fontFamily: 'inherit',
+    transition: 'all 0.12s',
+    ...style
+  }}>
+    {children}
+  </button>
+);
+
+// ============================================================
+// HOMEPAGE (Landing page — shown before checkout flow)
+// ============================================================
+function HomeScreen({ event, ticketTypes, addOns, onBuyTickets }) {
+  return (
+    <div style={{
+      minHeight: '100vh', position: 'relative', overflow: 'hidden',
+      background: 'radial-gradient(ellipse at top, #1A0533 0%, #08020F 60%)'
+    }}>
+      <HomeNav onBuyTickets={onBuyTickets} />
+      <HomeHero event={event} onBuyTickets={onBuyTickets} />
+      <HomeMarquee />
+      <HomeAbout />
+      <HomeTiers ticketTypes={ticketTypes} addOns={addOns} onBuyTickets={onBuyTickets} />
+      <HomeKreation />
+      <HomePastEvents />
+      <HomeFAQ event={event} />
+      <HomeFooter />
+    </div>
+  );
+}
+
+function HomeNav({ onBuyTickets }) {
+  return (
+    <nav style={{
+      position: 'sticky', top: 0, zIndex: 50,
+      backdropFilter: 'blur(20px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+      background: 'rgba(8, 2, 15, 0.6)',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      padding: '14px 32px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <KPHMark size={30} />
+        <span className="font-arcade" style={{ fontSize: 13, letterSpacing: 0.5 }}>
+          KPH<span style={{ color: 'var(--brand)' }}>.</span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <a href="#about" style={navLinkStyle}>About</a>
+        <a href="#tickets" style={navLinkStyle}>Tickets</a>
+        <button onClick={onBuyTickets} style={{
+          padding: '10px 18px',
+          borderRadius: 4,
+          background: 'var(--text)',
+          color: '#08020F',
+          border: 'none',
+          fontFamily: 'Sora, sans-serif',
+          fontWeight: 700,
+          fontSize: 11,
+          letterSpacing: 1.5,
+          cursor: 'pointer',
+          transition: 'background 0.2s, color 0.2s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#FF1B6B'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = '#08020F'; }}
+        >
+          GET TICKETS
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+const navLinkStyle = {
+  fontSize: 12,
+  fontFamily: 'Sora, sans-serif',
+  fontWeight: 500,
+  color: 'var(--text-muted)',
+  textDecoration: 'none',
+  letterSpacing: 0.3,
+  transition: 'color 0.2s',
+};
+
+function HomeHero({ event, onBuyTickets }) {
+  return (
+    <section style={{
+      position: 'relative',
+      minHeight: 'min(820px, 92vh)',
+      display: 'flex', alignItems: 'center',
+      padding: '60px 32px 100px',
+      overflow: 'hidden',
+    }}>
+      <div className="blob blob-magenta" style={{ opacity: 0.5 }} />
+      <div className="blob blob-cyan" style={{ opacity: 0.4 }} />
+      <div className="blob blob-purple" style={{ opacity: 0.4 }} />
+
+      {/* Editorial grid: left = headline + meta, right = vertical date strip */}
+      <div style={{
+        position: 'relative', zIndex: 1, width: '100%', maxWidth: 1280, margin: '0 auto',
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          padding: '6px 14px',
+          background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: 4,
+          fontSize: 10, fontWeight: 600, letterSpacing: 3,
+          color: 'var(--text-muted)',
+          marginBottom: 36,
+          fontFamily: 'JetBrains Mono, monospace',
+          textTransform: 'uppercase',
+        }}>
+          <span style={{
+            width: 5, height: 5, background: 'var(--brand)', borderRadius: '50%',
+          }}></span>
+          Presented by Kreation Philippines
+        </div>
+
+        <h1 className="font-display" style={{
+          fontSize: 'clamp(56px, 11vw, 168px)',
+          lineHeight: 0.88,
+          margin: '0 0 28px',
+          letterSpacing: -3,
+          fontWeight: 800,
+          color: 'var(--text)',
+          maxWidth: 1200,
+        }}>
+          Davao K-Pop<br/>
+          Convention<br/>
+          <span style={{
+            background: 'linear-gradient(90deg, #FF1B6B 0%, #C724FF 60%, #00E5FF 100%)',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            color: 'transparent',
+          }}>2026.</span>
+        </h1>
+
+        {/* Editorial meta row */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 32, marginTop: 40, marginBottom: 32,
+          paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.08)',
+          maxWidth: 880,
+        }}>
+          <MetaItem label="DATE" value="August 22, 2026" />
+          <MetaItem label="VENUE" value="CAP Grand Auditorium" />
+          <MetaItem label="CITY" value="Davao, Philippines" />
+          <MetaItem label="DOORS" value="11am · Show 1pm" />
+        </div>
+
+        <p style={{
+          fontSize: 'clamp(15px, 1.4vw, 18px)',
+          maxWidth: 580, margin: '0 0 48px',
+          color: 'var(--text-muted)', lineHeight: 1.7,
+        }}>
+          Davao's biggest K-pop cover competition. Crews compete live, the crowd votes,
+          and the night ends with the city's loudest rave.
+        </p>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={onBuyTickets} style={{
+            padding: '15px 32px',
+            borderRadius: 4,
+            background: 'var(--text)',
+            color: '#08020F',
+            border: 'none',
+            fontFamily: 'Sora, sans-serif',
+            fontWeight: 700,
+            fontSize: 13,
+            letterSpacing: 1.5,
+            cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            transition: 'transform 0.2s, background 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#FF1B6B'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = '#08020F'; }}
+          >
+            GET TICKETS <span style={{ fontFamily: 'inherit' }}>→</span>
+          </button>
+          <a href="#about" style={{
+            padding: '15px 24px',
+            color: 'var(--text-muted)',
+            fontFamily: 'Sora, sans-serif',
+            fontWeight: 500,
+            fontSize: 13,
+            letterSpacing: 1.5,
+            cursor: 'pointer',
+            textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+          >
+            About the event ↓
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const MetaItem = ({ label, value }) => (
+  <div style={{ minWidth: 120 }}>
+    <div className="font-mono" style={{
+      fontSize: 10, letterSpacing: 2, color: 'var(--text-soft)', fontWeight: 600, marginBottom: 6,
+    }}>
+      {label}
+    </div>
+    <div className="font-display" style={{
+      fontSize: 15, fontWeight: 600, color: 'var(--text)', letterSpacing: -0.2,
+    }}>
+      {value}
+    </div>
+  </div>
+);
+
+function HomeMarquee() {
+  const items = ['COMPETE', 'VOTE', 'PERFORM', 'RAVE', 'CONNECT', 'CELEBRATE'];
+  const allItems = [...items, ...items, ...items, ...items];
+  return (
+    <div style={{
+      position: 'relative',
+      borderTop: '1px solid rgba(255,255,255,0.08)',
+      borderBottom: '1px solid rgba(255,255,255,0.08)',
+      overflow: 'hidden',
+      padding: '20px 0',
+      mask: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
+      WebkitMask: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
+    }}>
+      <div className="anim-marquee" style={{
+        display: 'flex', gap: 48, width: 'max-content', whiteSpace: 'nowrap',
+      }}>
+        {allItems.map((item, i) => (
+          <span key={i} className="font-display" style={{
+            fontSize: 'clamp(18px, 2.2vw, 26px)',
+            color: 'var(--text)',
+            opacity: 0.95,
+            letterSpacing: -0.3,
+            fontWeight: 800,
+            display: 'inline-flex', alignItems: 'center', gap: 48,
+          }}>
+            {item}
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: i % 3 === 0 ? '#FF1B6B' : (i % 3 === 1 ? '#C724FF' : '#00E5FF'),
+              flexShrink: 0,
+            }} />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HomeAbout() {
+  const features = [
+    {
+      kicker: '01',
+      title: 'Compete',
+      desc: "Cover crews from across Mindanao perform live for a chance at the championship. Choreography, costuming, stage presence — judged by a panel of K-pop industry insiders.",
+    },
+    {
+      kicker: '02',
+      title: 'Vote',
+      desc: "The audience picks the People's Choice winner. Every ticket holder gets one vote — make it count.",
+    },
+    {
+      kicker: '03',
+      title: 'Perform',
+      desc: "Special guest performances between rounds, surprise stages, and a finale set you won't see anywhere else in Davao.",
+    },
+    {
+      kicker: '04',
+      title: 'Rave',
+      desc: "The night doesn't end when the contest ends. Add the Rave Party Pass and stay for the city's loudest K-pop afterparty.",
+    },
+  ];
+  return (
+    <section id="about" style={{
+      position: 'relative',
+      padding: '140px 32px 80px',
+      maxWidth: 1280, margin: '0 auto',
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)',
+        gap: 60,
+        marginBottom: 72,
+        alignItems: 'start',
+      }} className="about-header-grid">
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 20,
+          }}>
+            01 — WHAT TO EXPECT
+          </div>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(40px, 6vw, 76px)', lineHeight: 0.95,
+            margin: 0, letterSpacing: -1.5, fontWeight: 800,
+          }}>
+            One night.<br/>
+            Four reasons<br/>
+            to be there.
+          </h2>
+        </div>
+        <p style={{
+          fontSize: 'clamp(15px, 1.4vw, 18px)',
+          lineHeight: 1.7, color: 'var(--text-muted)',
+          margin: 0, paddingTop: 8, maxWidth: 580,
+        }}>
+          Every Davao K-Pop Convention is built on the same four pillars: the competition,
+          the crowd, the performances, and the afterparty. Here's what each night delivers,
+          and why we keep coming back.
+        </p>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 0,
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        borderLeft: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        {features.map((f, i) => (
+          <div key={f.title} style={{
+            position: 'relative',
+            padding: '36px 32px 32px',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.01)',
+            transition: 'background 0.25s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,27,107,0.04)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
+          >
+            <div className="font-mono" style={{
+              fontSize: 11, letterSpacing: 2, color: 'var(--text-soft)',
+              fontWeight: 600, marginBottom: 24,
+            }}>
+              {f.kicker}
+            </div>
+            <h3 className="font-display" style={{
+              fontSize: 26, margin: '0 0 14px',
+              letterSpacing: -0.5, fontWeight: 700,
+              color: 'var(--text)',
+            }}>
+              {f.title}
+            </h3>
+            <p style={{
+              fontSize: 14, lineHeight: 1.65, color: 'var(--text-muted)', margin: 0,
+            }}>
+              {f.desc}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HomeTiers({ ticketTypes, addOns, onBuyTickets }) {
+  const tierColors = ['#FF1B6B', '#C724FF', '#00E5FF'];
+  return (
+    <section id="tickets" style={{
+      position: 'relative',
+      padding: '100px 32px 100px',
+      maxWidth: 1280, margin: '0 auto',
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)',
+        gap: 60,
+        marginBottom: 56,
+        alignItems: 'end',
+      }}>
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 20,
+          }}>
+            02 — TICKETS
+          </div>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(40px, 6vw, 76px)', lineHeight: 0.95,
+            margin: 0, letterSpacing: -1.5, fontWeight: 800,
+          }}>
+            Three tiers.<br/>
+            One night.
+          </h2>
+        </div>
+        <p style={{
+          fontSize: 15, lineHeight: 1.7, color: 'var(--text-muted)',
+          margin: 0, maxWidth: 480, paddingBottom: 8,
+        }}>
+          Pick what fits. VIP gets you assigned seats up front, Regular keeps things easy
+          in the upper section, and Participant is for the crews on stage.
+        </p>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 24,
+        marginBottom: 40,
+      }}>
+        {ticketTypes.map((tt, i) => {
+          const color = tierColors[i % tierColors.length];
+          const isVip = tt.has_assigned_seats;
+          const isParticipant = (tt.name || '').toLowerCase().includes('participant');
+          const features = (tt.description || '').split(/[.•]/).map(s => s.trim()).filter(Boolean);
+          return (
+            <div key={tt.id} className="lift" style={{
+              position: 'relative',
+              padding: '36px 28px 28px',
+              borderRadius: 24,
+              background: isVip
+                ? 'linear-gradient(180deg, rgba(255,27,107,0.06), rgba(255,255,255,0.02))'
+                : 'rgba(255,255,255,0.025)',
+              border: isVip ? '1px solid rgba(255,27,107,0.35)' : '1px solid rgba(255,255,255,0.08)',
+              overflow: 'hidden',
+            }}>
+              {isVip && (
+                <div style={{
+                  position: 'absolute', top: 14, right: 14,
+                  padding: '4px 10px', borderRadius: 999,
+                  background: 'linear-gradient(135deg, #FF1B6B, #C724FF)',
+                  fontSize: 9, fontWeight: 800, letterSpacing: 1.5,
+                  fontFamily: 'Sora, sans-serif', color: 'white',
+                }}>
+                  ASSIGNED SEATS
+                </div>
+              )}
+              <div className="font-mono" style={{
+                fontSize: 10, letterSpacing: 2, color, fontWeight: 600,
+                marginBottom: 12, opacity: 0.7,
+              }}>
+                TIER {String.fromCharCode(65 + i)}
+              </div>
+              <h3 className="font-display" style={{
+                fontSize: 32, margin: '0 0 4px', letterSpacing: -1,
+                color: 'var(--text)', fontWeight: 800,
+              }}>
+                {tt.name}
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 22 }}>
+                <span className="font-display" style={{
+                  fontSize: 40, letterSpacing: -1.5, fontWeight: 800,
+                  color: 'var(--text)',
+                }}>
+                  ₱{Number(tt.price).toLocaleString()}
+                </span>
+                {isParticipant && (
+                  <span style={{ fontSize: 13, color: 'var(--text-soft)', fontFamily: 'Sora, sans-serif' }}>
+                    / member
+                  </span>
+                )}
+              </div>
+
+              <ul style={{
+                listStyle: 'none', padding: 0, margin: '0 0 28px',
+                display: 'flex', flexDirection: 'column', gap: 12,
+              }}>
+                {features.slice(0, 4).map((f, idx) => (
+                  <li key={idx} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5,
+                  }}>
+                    <span style={{
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: color + '22',
+                      color, fontSize: 10, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, marginTop: 2,
+                    }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <button onClick={onBuyTickets} style={{
+                width: '100%',
+                padding: '13px 20px',
+                borderRadius: 12,
+                background: isVip
+                  ? 'linear-gradient(135deg, #FF1B6B, #C724FF)'
+                  : 'rgba(255,255,255,0.04)',
+                color: 'white',
+                border: isVip ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                fontFamily: 'Sora, sans-serif',
+                fontWeight: 700,
+                fontSize: 13, letterSpacing: 1,
+                cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                GET {tt.name.toUpperCase()} <Icon name="arrow" size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {addOns && addOns.length > 0 && (
+        <div style={{
+          padding: '24px 28px',
+          borderRadius: 4,
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderLeft: '3px solid var(--brand)',
+          display: 'flex', alignItems: 'center', gap: 20,
+          flexWrap: 'wrap', justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: '1 1 280px' }}>
+            <div className="font-mono" style={{
+              fontSize: 10, letterSpacing: 2, color: 'var(--brand)',
+              fontWeight: 700, marginBottom: 6,
+            }}>
+              OPTIONAL ADD-ON
+            </div>
+            <div className="font-display" style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, color: 'var(--text)', letterSpacing: -0.3 }}>
+              Rave Party Pass
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              ₱{Number(addOns[0].price).toLocaleString()} per attendee. Stay for the afterparty when the show ends.
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function HomeKreation() {
+  return (
+    <section style={{
+      position: 'relative',
+      padding: '100px 32px',
+      maxWidth: 1280, margin: '0 auto',
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: 60,
+        alignItems: 'center',
+      }}>
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 20,
+          }}>
+            03 — ORGANIZED BY
+          </div>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(36px, 5vw, 64px)', lineHeight: 0.95,
+            margin: '0 0 24px', letterSpacing: -1.5, fontWeight: 800,
+          }}>
+            Kreation<br/>Philippines.
+          </h2>
+          <p style={{
+            fontSize: 18, lineHeight: 1.5, color: 'var(--text)',
+            margin: '0 0 24px', fontFamily: 'Sora, sans-serif',
+            fontWeight: 500,
+          }}>
+            Home of Davao City's K-pop events. Bringing the beat of K-pop through creativity,
+            <span style={{ color: 'var(--brand)' }}> one event at a time.</span>
+          </p>
+          <p style={{
+            fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-muted)', marginBottom: 16,
+          }}>
+            We're Davao's only trusted K-pop convention organizers. Since 2022, we've been bringing
+            K-pop enthusiasts together — locally and nationwide — across four years and five major events.
+          </p>
+          <p style={{
+            fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-muted)', marginBottom: 28,
+          }}>
+            Our goal goes beyond competition. We want people to connect, interact, and remember what
+            being a K-pop fan is really about. Yes, crews compete — but the experience is bigger.
+            The stages, the cosplays, the rave, the friendships made between rounds.
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}> That's what we build, every year.</span>
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <a href="https://www.facebook.com/kreationphilippines" target="_blank" rel="noopener" style={socialLinkStyle}>
+              Facebook
+            </a>
+            <a href="https://www.instagram.com/kreationphilippines" target="_blank" rel="noopener" style={socialLinkStyle}>
+              Instagram
+            </a>
+            <a href="https://www.tiktok.com/@kreationphilippines" target="_blank" rel="noopener" style={socialLinkStyle}>
+              TikTok
+            </a>
+          </div>
+        </div>
+
+        <div style={{
+          position: 'relative', minHeight: 360,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'radial-gradient(circle at center, rgba(199,36,255,0.15), transparent 60%)',
+            filter: 'blur(40px)',
+          }} />
+          <div style={{
+            position: 'relative', padding: '40px 36px',
+            borderRadius: 4,
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28,
+            minWidth: 280,
+          }}>
+            <KPHLogo size={56} />
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24,
+              padding: '24px 0 0', borderTop: '1px solid rgba(255,255,255,0.08)',
+              width: '100%',
+            }}>
+              <Stat n="4" label="YEARS" />
+              <Stat n="5" label="EVENTS" />
+              <Stat n="20+" label="CHAMPIONS" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const Stat = ({ n, label }) => (
+  <div style={{ textAlign: 'center' }}>
+    <div className="font-display" style={{
+      fontSize: 36, lineHeight: 1, letterSpacing: -1.5, fontWeight: 800,
+      color: 'var(--text)',
+    }}>{n}</div>
+    <div className="font-mono" style={{
+      fontSize: 9, letterSpacing: 2, color: 'var(--text-soft)',
+      fontWeight: 600, marginTop: 8,
+    }}>{label}</div>
+  </div>
+);
+
+const socialLinkStyle = {
+  padding: '11px 20px',
+  borderRadius: 4,
+  background: 'transparent',
+  color: 'var(--text)',
+  border: '1px solid rgba(255,255,255,0.14)',
+  fontFamily: 'Sora, sans-serif',
+  fontWeight: 600,
+  fontSize: 12, letterSpacing: 1,
+  textDecoration: 'none',
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  transition: 'background 0.2s, border-color 0.2s, color 0.2s',
+};
+
+function HomePastEvents() {
+  const events = [
+    {
+      year: '2022',
+      date: 'May 15, 2022',
+      name: 'K-Pop Dance Resurgence',
+      photo: '/resurgence-2022.jpg',
+      photoPosition: '50% 40%',
+      accent: '#FF1B6B',
+      champions: [
+        { category: 'Champions', winner: 'KryptoKnights' },
+        { category: 'Rewind', winner: 'NYX PH' },
+        { category: 'Rookies', winner: 'KRUSH' },
+      ],
+    },
+    {
+      year: '2022',
+      date: 'October 30, 2022',
+      name: 'K-Pop Show Off',
+      photo: '/showoff-2022.jpg',
+      photoPosition: '50% 40%',
+      accent: '#C724FF',
+      champions: [
+        { category: 'Queendom', winner: 'Mystique' },
+        { category: 'Kingdom', winner: 'OXEPRIME' },
+        { category: 'Hallyu Cosplay', winner: 'EJ Duay' },
+      ],
+    },
+    {
+      year: '2023',
+      date: 'May 7, 2023',
+      name: 'K-Pop Dance Resurgence II',
+      photo: '/resurgence-2-2023.jpg',
+      photoPosition: '50% 30%',
+      accent: '#00E5FF',
+      champions: [
+        { category: 'Dance Off', winner: 'NYX PH' },
+        { category: 'Rewind', winner: 'Charm Official' },
+        { category: 'Mega Crew', winner: 'ANADEM Entertainment' },
+      ],
+    },
+    {
+      year: '2023',
+      date: 'November 19, 2023',
+      name: 'K-Pop Show Off II',
+      photo: '/showoff-2-2023.jpg',
+      photoPosition: '50% 35%',
+      accent: '#FF1B6B',
+      champions: [
+        { category: 'Queendom', winner: 'XSCAPE' },
+        { category: 'Kingdom', winner: 'OXEPRIME' },
+        { category: 'Hallyu Cosplay', winner: 'Jamaica Muyco' },
+      ],
+    },
+    {
+      year: '2024',
+      date: 'December 7, 2024',
+      name: 'Kreation Philippines Awards',
+      photo: '/kph-awards-2024.jpg',
+      photoPosition: '50% 50%',
+      accent: '#C724FF',
+      champions: [
+        { category: 'Rookies', winner: 'XYNYX' },
+        { category: 'Seniors', winner: 'The Glitz' },
+        { category: 'Reverse', winner: 'NE-ONS' },
+        { category: 'Mega Crew', winner: 'ANADEM Entertainment' },
+      ],
+      featured: true,
+    },
+  ];
+
+  return (
+    <section style={{
+      position: 'relative',
+      padding: '100px 32px 120px',
+      maxWidth: 1280, margin: '0 auto',
+    }}>
+      {/* Section header — editorial */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)',
+        gap: 60,
+        marginBottom: 72,
+        alignItems: 'end',
+      }}>
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 20,
+          }}>
+            04 — THE ARCHIVE
+          </div>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(40px, 6vw, 76px)', lineHeight: 0.95,
+            margin: 0, letterSpacing: -1.5, fontWeight: 800,
+          }}>
+            Four years.<br/>
+            Five events.
+          </h2>
+        </div>
+        <p style={{
+          fontSize: 15, lineHeight: 1.7, color: 'var(--text-muted)',
+          margin: 0, maxWidth: 520, paddingBottom: 8,
+        }}>
+          Since 2022, our stages have crowned champions across categories. These are the events,
+          and the crews who walked away with the title.
+        </p>
+      </div>
+
+      {/* Events stack */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 80 }}>
+        {events.map((ev, i) => (
+          <EventArchiveCard key={i} event={ev} index={i} reversed={i % 2 === 1} />
+        ))}
+      </div>
+
+      {/* Closing — next chapter */}
+      <div style={{
+        marginTop: 96,
+        padding: '48px 40px',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(260px, 1fr) auto',
+        gap: 40, alignItems: 'center',
+      }} className="next-chapter-cta">
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--brand)',
+            fontWeight: 600, marginBottom: 14,
+          }}>
+            NEXT CHAPTER · AUGUST 22, 2026
+          </div>
+          <div className="font-display" style={{
+            fontSize: 'clamp(28px, 4vw, 44px)', lineHeight: 1.05,
+            letterSpacing: -1, fontWeight: 800, color: 'var(--text)',
+          }}>
+            Where the next champions write themselves in.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EventArchiveCard({ event, index, reversed }) {
+  const num = String(index + 1).padStart(2, '0');
+  return (
+    <article style={{ position: 'relative' }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: reversed ? 'row-reverse' : 'row',
+        flexWrap: 'wrap',
+        gap: 0,
+        alignItems: 'stretch',
+      }}>
+        {/* Photo — dominates the layout */}
+        <div style={{
+          flex: '1 1 520px',
+          minHeight: 420,
+          position: 'relative',
+          backgroundImage: 'url(' + event.photo + ')',
+          backgroundSize: 'cover',
+          backgroundPosition: event.photoPosition || 'center',
+          borderRadius: 4,
+          overflow: 'hidden',
+        }}>
+          {/* Subtle vignette for legibility of corner labels */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.45) 100%)',
+            pointerEvents: 'none',
+          }} />
+          {/* Top-left: editorial caption */}
+          <div style={{
+            position: 'absolute', top: 20, left: 20,
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            <div className="font-mono" style={{
+              fontSize: 10, letterSpacing: 2,
+              color: 'rgba(255,255,255,0.95)',
+              fontWeight: 600,
+            }}>
+              EVENT {num} / {event.year}
+            </div>
+          </div>
+          {/* Featured flag for KPH Awards */}
+          {event.featured && (
+            <div style={{
+              position: 'absolute', top: 20, right: 20,
+              padding: '4px 10px', borderRadius: 2,
+              background: 'rgba(255,255,255,0.95)',
+              color: '#08020F',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10, fontWeight: 700, letterSpacing: 1.5,
+            }}>
+              FLAGSHIP
+            </div>
+          )}
+        </div>
+
+        {/* Info — clean editorial */}
+        <div style={{
+          flex: '1 1 360px',
+          padding: reversed ? '20px 56px 20px 0' : '20px 0 20px 56px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          minWidth: 0,
+        }} className="archive-info-side">
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 16,
+          }}>
+            {event.date.toUpperCase()}
+          </div>
+
+          <h3 className="font-display" style={{
+            fontSize: 'clamp(28px, 3.4vw, 44px)',
+            lineHeight: 1, margin: '0 0 36px',
+            letterSpacing: -1.2, fontWeight: 800,
+            color: 'var(--text)',
+          }}>
+            {event.name}
+          </h3>
+
+          <div style={{
+            paddingTop: 24,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            <div className="font-mono" style={{
+              fontSize: 10, letterSpacing: 2.5,
+              color: 'var(--text-soft)', fontWeight: 600,
+              marginBottom: 18,
+            }}>
+              CHAMPIONS
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {event.champions.map((c, ci) => (
+                <ChampionRow key={ci} category={c.category} winner={c.winner} accent={event.accent} isLast={ci === event.champions.length - 1} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ChampionRow({ category, winner, accent, isLast }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr auto',
+      gap: 24, alignItems: 'baseline',
+      padding: '16px 0',
+      borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.06)',
+      transition: 'padding-left 0.2s',
+      position: 'relative',
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.paddingLeft = '8px';
+      const bar = e.currentTarget.querySelector('.champ-bar');
+      if (bar) bar.style.opacity = '1';
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.paddingLeft = '0';
+      const bar = e.currentTarget.querySelector('.champ-bar');
+      if (bar) bar.style.opacity = '0';
+    }}
+    >
+      <div className="champ-bar" style={{
+        position: 'absolute', left: 0, top: '20%', bottom: '20%',
+        width: 2, background: accent, opacity: 0,
+        transition: 'opacity 0.2s',
+      }} />
+      <div style={{
+        fontSize: 13, fontFamily: 'JetBrains Mono, monospace',
+        letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 500,
+        textTransform: 'uppercase',
+      }}>
+        {category}
+      </div>
+      <div className="font-display" style={{
+        fontSize: 18, fontWeight: 700, color: 'var(--text)',
+        letterSpacing: -0.3, textAlign: 'right',
+      }}>
+        {winner}
+      </div>
+    </div>
+  );
+}
+
+function HomeFAQ({ event }) {
+  const faqs = [
+    {
+      q: 'How do I pay for my ticket?',
+      a: "After picking your seats and filling in your details, you'll send payment via GCash, Maya, or bank transfer using the account shown at checkout. Upload your receipt, and our team verifies it within 24 hours. You'll get an email confirmation with your ticket once it's approved.",
+    },
+    {
+      q: "When and where do I pick up my ticket?",
+      a: "After your payment is verified, you'll pick a Friday slot from May 15 to August 21, 2026 — 5 PM to 9 PM at Work Co Claveria Branch, Davao City. Bring a valid ID and your order number.",
+    },
+    {
+      q: "What's included with the VIP ticket?",
+      a: "Assigned seat in the ground floor section, event souvenir, access to blocking and rehearsal sessions, and early entry at 11 AM.",
+    },
+    {
+      q: "What's the difference between Regular and Participant?",
+      a: "Regular is for general audience — upper section free seating, doors open at 12 PM. Participant is for competing dancer crews — free seating in the participant area, ₱300 per crew member, with early entry at 11 AM.",
+    },
+    {
+      q: "What is the Rave Party Pass?",
+      a: "An optional add-on (₱400 per attendee) that gets you into the post-event rave party. Add it per-attendee at checkout.",
+    },
+    {
+      q: "Where is the venue exactly?",
+      a: event && event.venue_address ? event.venue_address : "CAP Grand Auditorium, 37 Iñigo Street, Poblacion District, Davao City.",
+    },
+    {
+      q: "Can I get a refund?",
+      a: "Tickets are non-refundable once confirmed, but they're transferable. If you can't make it, message us and we'll help you re-assign your ticket to a friend.",
+    },
+    {
+      q: "I have another question.",
+      a: "DM us on Instagram or Facebook (@kreationphilippines) and we'll get back to you within a day.",
+    },
+  ];
+  return (
+    <section style={{
+      position: 'relative',
+      padding: '100px 32px 100px',
+      maxWidth: 1000, margin: '0 auto',
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)',
+        gap: 60,
+        marginBottom: 48,
+        alignItems: 'end',
+      }}>
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 3, color: 'var(--text-soft)',
+            fontWeight: 600, marginBottom: 20,
+          }}>
+            05 — FAQ
+          </div>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(36px, 5vw, 60px)', lineHeight: 0.95,
+            margin: 0, letterSpacing: -1.5, fontWeight: 800,
+          }}>
+            Things you<br/>might be asking.
+          </h2>
+        </div>
+        <p style={{
+          fontSize: 15, lineHeight: 1.7, color: 'var(--text-muted)',
+          margin: 0, paddingBottom: 8, maxWidth: 460,
+        }}>
+          Got something not covered here? DM <a href="https://www.instagram.com/kreationphilippines" target="_blank" rel="noopener" style={{ color: 'var(--text)', textDecoration: 'underline' }}>@kreationphilippines</a> on Instagram or Facebook.
+        </p>
+      </div>
+      <div>
+        {faqs.map((f, i) => (
+          <details key={i} className="faq">
+            <summary>{f.q}</summary>
+            <div className="answer">{f.a}</div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HomeFooter() {
+  return (
+    <footer style={{
+      position: 'relative',
+      padding: '80px 32px 40px',
+      borderTop: '1px solid rgba(255,255,255,0.08)',
+      marginTop: 40,
+    }}>
+      <div style={{
+        maxWidth: 1280, margin: '0 auto',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 48,
+        marginBottom: 56,
+      }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <KPHMark size={36} />
+            <span className="font-arcade" style={{ fontSize: 16, letterSpacing: 0.5 }}>
+              KPH<span style={{ color: 'var(--brand)' }}>.</span>
+            </span>
+          </div>
+          <p style={{
+            fontSize: 13, lineHeight: 1.65, color: 'var(--text-muted)', margin: 0, maxWidth: 280,
+          }}>
+            Kreation Philippines — Davao's home for K-pop conventions, cover competitions, and the city's loudest stages.
+          </p>
+        </div>
+
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 2, color: 'var(--text-soft)', fontWeight: 600, marginBottom: 18,
+          }}>
+            CONTACT
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: 'var(--text-muted)' }}>
+            <a href="mailto:kreationph@gmail.com" style={footerLinkStyle}>kreationph@gmail.com</a>
+            <a href="https://www.instagram.com/kreationphilippines" target="_blank" rel="noopener" style={footerLinkStyle}>@kreationphilippines</a>
+            <a href="https://www.facebook.com/kreationphilippines" target="_blank" rel="noopener" style={footerLinkStyle}>facebook.com/kreationphilippines</a>
+          </div>
+        </div>
+
+        <div>
+          <div className="font-mono" style={{
+            fontSize: 10, letterSpacing: 2, color: 'var(--text-soft)', fontWeight: 600, marginBottom: 18,
+          }}>
+            EVENT
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: 'var(--text-muted)' }}>
+            <span>Davao K-Pop Convention 2026</span>
+            <span>August 22, 2026</span>
+            <span>CAP Grand Auditorium, Davao</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        maxWidth: 1280, margin: '0 auto',
+        paddingTop: 28,
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
+        fontSize: 11, color: 'var(--text-soft)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: 1,
+      }}>
+        <span>© 2026 KREATION PHILIPPINES</span>
+        <span>DAVAO · PHILIPPINES</span>
+      </div>
+    </footer>
+  );
+}
+
+const footerLinkStyle = {
+  color: 'var(--text-muted)',
+  textDecoration: 'none',
+  transition: 'color 0.15s',
+};
+
+// ============================================================
+// APP ROOT
+// ============================================================
+function App() {
+  const [view, setView] = useState('home'); // 'home' | 'checkout'
+  const [step, setStep] = useState('tickets');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
+  // Catalog data
+  const [event, setEvent] = useState(null);
+  const [ticketTypes, setTicketTypes] = useState([]);
+  const [addOns, setAddOns] = useState([]);
+  const [pickupSlots, setPickupSlots] = useState([]);
+  const [seats, setSeats] = useState([]);
+  const [takenSeatIds, setTakenSeatIds] = useState(new Set());
+
+  // Cart state
+  const [cart, setCart] = useState({});       // { ticketTypeId: quantity }
+  const [attendees, setAttendees] = useState([]); // [{ name, ticketTypeId, hasRaveParty, seatId? }]
+  const [pickupSlotId, setPickupSlotId] = useState(null);
+  const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' });
+  const [paymentRef, setPaymentRef] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [submittedOrder, setSubmittedOrder] = useState(null);
+
+  // Load data
+  useEffect(() => {
+    (async () => {
+      try {
+        const [evR, ttR, aR, psR, sR, osR, oR] = await Promise.all([
+          supabase.from('events').select('*').eq('is_active', true).limit(1).maybeSingle(),
+          supabase.from('ticket_types').select('*').order('display_order'),
+          supabase.from('add_ons').select('*').eq('is_active', true).order('display_order'),
+          supabase.from('pickup_slots').select('*').eq('is_active', true).order('slot_date'),
+          supabase.from('seats').select('*').order('row_label').order('seat_number'),
+          supabase.from('order_seats').select('seat_id, orders!inner(status)'),
+          supabase.from('orders').select('id, status').in('status', ['awaiting_verification', 'confirmed', 'pending_payment'])
+        ]);
+        if (evR.error) throw evR.error;
+        if (!evR.data) throw new Error('No active event configured yet.');
+        setEvent(evR.data);
+        setTicketTypes(ttR.data || []);
+        setAddOns(aR.data || []);
+        setPickupSlots(psR.data || []);
+        setSeats(sR.data || []);
+
+        // Build set of taken seat IDs (seats in active orders)
+        const activeOrderIds = new Set((oR.data || []).map(o => o.id));
+        const taken = new Set();
+        (osR.data || []).forEach(os => {
+          if (activeOrderIds.has(os.order_id)) taken.add(os.seat_id);
+          // Note: orders!inner join returns the join row; we check via active list above
+        });
+        // Fallback: use the inner-joined status field if provided
+        (osR.data || []).forEach(os => {
+          if (os.orders && ['awaiting_verification', 'confirmed', 'pending_payment'].includes(os.orders.status)) {
+            taken.add(os.seat_id);
+          }
+        });
+        setTakenSeatIds(taken);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('[Load error]', err);
+        setLoadError(err.message || String(err));
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Compute attendees when cart changes
+  const syncAttendees = useCallback(() => {
+    const built = [];
+    ticketTypes.forEach(tt => {
+      const qty = cart[tt.id] || 0;
+      for (let i = 0; i < qty; i++) {
+        // Preserve existing data if attendee at same position+type already exists
+        const existing = attendees.filter(a => a.ticketTypeId === tt.id)[i];
+        built.push({
+          name: existing ? existing.name : '',
+          ticketTypeId: tt.id,
+          hasRaveParty: existing ? existing.hasRaveParty : false,
+          seatId: existing ? existing.seatId : null,
+        });
+      }
+    });
+    setAttendees(built);
+  }, [cart, ticketTypes, attendees]);
+
+  // Pricing
+  const totals = useMemo(() => {
+    // Ticket count + subtotal come from cart so the running total updates live on Step 1
+    // (attendees only syncs when the user clicks Continue out of Step 1).
+    const ticketCount = Object.values(cart).reduce((s, n) => s + Number(n || 0), 0);
+    const subtotal = Object.entries(cart).reduce((sum, [tid, qty]) => {
+      const tt = ticketTypes.find(t => t.id === tid);
+      return sum + Number(tt ? tt.price : 0) * Number(qty || 0);
+    }, 0);
+    const raveCount = attendees.filter(a => a.hasRaveParty).length;
+    const raveAddOn = addOns.find(a => a.name.toLowerCase().includes('rave'));
+    const ravePrice = raveAddOn ? Number(raveAddOn.price) : 400;
+    const addOnTotal = raveCount * ravePrice;
+    const total = subtotal + addOnTotal;
+    return { ticketCount, subtotal, raveCount, ravePrice, addOnTotal, total };
+  }, [cart, attendees, ticketTypes, addOns]);
+
+  const vipTicketType = ticketTypes.find(t => t.has_assigned_seats);
+  const vipAttendees = attendees.filter(a => vipTicketType && a.ticketTypeId === vipTicketType.id);
+  const needSeats = vipAttendees.length > 0;
+
+  if (loading) return <LoadingScreen />;
+  if (loadError) return <ErrorScreen message={loadError} />;
+
+  if (view === 'home') {
+    return (
+      <HomeScreen
+        event={event}
+        ticketTypes={ticketTypes}
+        addOns={addOns}
+        onBuyTickets={() => {
+          setView('checkout');
+          setStep('tickets');
+          // Scroll to top for the checkout transition
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }}
+      />
+    );
+  }
+
+  if (step === 'done') return <DoneScreen order={submittedOrder} event={event} onReturnHome={() => { setView('home'); setStep('tickets'); window.scrollTo({ top: 0 }); }} />;
+
+  const goNext = () => {
+    if (step === 'tickets') {
+      syncAttendees();
+      setStep('attendees');
+    } else if (step === 'attendees') {
+      setStep(needSeats ? 'seats' : 'details');
+    } else if (step === 'seats') {
+      setStep('details');
+    } else if (step === 'details') {
+      setStep('payment');
+    }
+  };
+
+  const goBack = () => {
+    if (step === 'attendees') setStep('tickets');
+    else if (step === 'seats') setStep('attendees');
+    else if (step === 'details') setStep(needSeats ? 'seats' : 'attendees');
+    else if (step === 'payment') setStep('details');
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', position: 'relative', overflow: 'hidden',
+      background: 'radial-gradient(ellipse at top, #1A0533 0%, #08020F 60%)'
+    }}>
+      <div className="blob blob-magenta" />
+      <div className="blob blob-cyan" />
+      <div className="blob blob-purple" />
+
+      <TopBar onHome={() => { setView('home'); window.scrollTo({ top: 0 }); }} />
+
+      <main style={{ position: 'relative', zIndex: 1, maxWidth: 900, margin: '0 auto', padding: '20px 20px 60px' }}>
+        {step === 'tickets' && (
+          <>
+            <EventHero event={event} />
+            <StepProgress current={1} needSeats={needSeats} />
+            <TicketsStep
+              ticketTypes={ticketTypes}
+              cart={cart} setCart={setCart}
+              seats={seats} takenSeatIds={takenSeatIds}
+              onNext={goNext}
+              totals={totals}
+            />
+          </>
+        )}
+        {step === 'attendees' && (
+          <>
+            <StepProgress current={2} needSeats={needSeats} />
+            <AttendeesStep
+              attendees={attendees} setAttendees={setAttendees}
+              ticketTypes={ticketTypes}
+              ravePrice={totals.ravePrice}
+              totals={totals}
+              onNext={goNext} onBack={goBack}
+            />
+          </>
+        )}
+        {step === 'seats' && (
+          <>
+            <StepProgress current={3} needSeats={needSeats} />
+            <SeatsStep
+              seats={seats} takenSeatIds={takenSeatIds}
+              vipAttendees={vipAttendees}
+              attendees={attendees} setAttendees={setAttendees}
+              vipTicketType={vipTicketType}
+              onNext={goNext} onBack={goBack}
+            />
+          </>
+        )}
+        {step === 'details' && (
+          <>
+            <StepProgress current={needSeats ? 4 : 3} needSeats={needSeats} />
+            <DetailsStep
+              pickupSlots={pickupSlots}
+              pickupSlotId={pickupSlotId} setPickupSlotId={setPickupSlotId}
+              buyer={buyer} setBuyer={setBuyer}
+              totals={totals}
+              onNext={goNext} onBack={goBack}
+            />
+          </>
+        )}
+        {step === 'payment' && (
+          <>
+            <StepProgress current={needSeats ? 5 : 4} needSeats={needSeats} />
+            <PaymentStep
+              event={event} totals={totals}
+              paymentRef={paymentRef} setPaymentRef={setPaymentRef}
+              receiptFile={receiptFile} setReceiptFile={setReceiptFile}
+              submitting={submitting} submitError={submitError}
+              attendees={attendees} buyer={buyer}
+              pickupSlotId={pickupSlotId}
+              ticketTypes={ticketTypes} addOns={addOns}
+              onBack={goBack}
+              onSubmit={async () => {
+                setSubmitting(true); setSubmitError(null);
+                try {
+                  const order = await submitOrder({
+                    event, ticketTypes, addOns, attendees, buyer,
+                    pickupSlotId, paymentRef, receiptFile, totals
+                  });
+                  setSubmittedOrder(order);
+                  setStep('done');
+                } catch (err) {
+                  console.error('[Submit error]', err);
+                  setSubmitError(err.message || String(err));
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+            />
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ============================================================
+// SUBMIT ORDER (creates order + attendees + order_seats + order_add_ons)
+// ============================================================
+async function submitOrder({
+  event, ticketTypes, addOns, attendees, buyer,
+  pickupSlotId, paymentRef, receiptFile, totals
+}) {
+  // 1. Upload receipt to storage first
+  const ext = receiptFile.name.split('.').pop().toLowerCase();
+  const path = 'receipts/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const upR = await supabase.storage.from('receipts').upload(path, receiptFile, { upsert: false });
+  if (upR.error) throw new Error('Receipt upload failed: ' + upR.error.message);
+
+  // 2. Create order
+  const primaryTicketTypeId = attendees[0] ? attendees[0].ticketTypeId : null;
+  const insOrder = await supabase.from('orders').insert({
+    event_id: event.id,
+    ticket_type_id: primaryTicketTypeId,
+    pickup_slot_id: pickupSlotId,
+    buyer_name: buyer.name.trim(),
+    buyer_email: buyer.email.trim().toLowerCase(),
+    buyer_phone: buyer.phone.trim(),
+    subtotal: totals.subtotal,
+    add_on_total: totals.addOnTotal,
+    total: totals.total,
+    payment_method: 'GCash',
+    reference_number: paymentRef.trim(),
+    receipt_path: path,
+    receipt_uploaded_at: new Date().toISOString(),
+    status: 'awaiting_verification',
+  }).select().single();
+  if (insOrder.error) throw new Error('Order creation failed: ' + insOrder.error.message);
+  const order = insOrder.data;
+
+  // 3. Insert attendees
+  const attendeeRows = attendees.map((a, i) => ({
+    order_id: order.id,
+    name: a.name.trim(),
+    ticket_type_id: a.ticketTypeId,
+    seat_id: a.seatId || null,
+    has_rave_party: !!a.hasRaveParty,
+    display_order: i,
+  }));
+  if (attendeeRows.length > 0) {
+    const insAtt = await supabase.from('attendees').insert(attendeeRows);
+    if (insAtt.error) throw new Error('Attendee save failed: ' + insAtt.error.message);
+  }
+
+  // 4. Insert order_seats for VIP attendees with seats
+  const seatRows = attendees
+    .filter(a => a.seatId)
+    .map(a => ({ order_id: order.id, seat_id: a.seatId }));
+  if (seatRows.length > 0) {
+    const insSeats = await supabase.from('order_seats').insert(seatRows);
+    if (insSeats.error) throw new Error('Seat reservation failed: ' + insSeats.error.message);
+  }
+
+  // 5. Insert order_add_ons (one row aggregating rave party count)
+  if (totals.raveCount > 0) {
+    const raveAddOn = addOns.find(a => a.name.toLowerCase().includes('rave'));
+    if (raveAddOn) {
+      const insAo = await supabase.from('order_add_ons').insert({
+        order_id: order.id,
+        add_on_id: raveAddOn.id,
+        quantity: totals.raveCount,
+        price_each: raveAddOn.price,
+      });
+      if (insAo.error) throw new Error('Add-on save failed: ' + insAo.error.message);
+    }
+  }
+
+  return order;
+}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'radial-gradient(ellipse at top, #1A0533 0%, #08020F 60%)',
+      position: 'relative', overflow: 'hidden'
+    }}>
+      <div className="blob blob-magenta" style={{ opacity: 0.4 }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+        <Spinner size={36} />
+        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading event details...</div>
+      </div>
+    </div>
+  );
+}
+
+function ErrorScreen({ message }) {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: 'radial-gradient(ellipse at top, #1A0533 0%, #08020F 60%)'
+    }}>
+      <Card style={{ maxWidth: 460, textAlign: 'center' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16, background: 'var(--danger-bg)',
+          color: 'var(--danger)', display: 'inline-flex', alignItems: 'center',
+          justifyContent: 'center', marginBottom: 16, border: '1px solid rgba(255, 23, 68, 0.3)'
+        }}>
+          <Icon name="alert" size={24} />
+        </div>
+        <div className="font-display" style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
+          Couldn't load event
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{message}</div>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// TOP BAR
+// ============================================================
+function TopBar({ onHome }) {
+  return (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 10,
+      background: 'rgba(8, 2, 15, 0.7)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderBottom: '1px solid var(--border)',
+      padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+    }}>
+      <button
+        onClick={onHome}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer', color: 'inherit', fontFamily: 'inherit',
+        }}
+      >
+        <KPHMark size={32} />
+        <span className="font-arcade" style={{ fontSize: 13, letterSpacing: 0.5 }}>
+          KPH<span style={{ color: 'var(--brand)' }}>.</span>
+        </span>
+      </button>
+      <button
+        onClick={onHome}
+        style={{
+          fontSize: 10, color: 'var(--text-soft)', letterSpacing: 1.5,
+          fontFamily: 'Sora', fontWeight: 600,
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        ← BACK TO HOMEPAGE
+      </button>
+    </header>
+  );
+}
+
+// ============================================================
+// EVENT HERO
+// ============================================================
+function EventHero({ event }) {
+  return (
+    <div className="anim-fade-in" style={{ padding: '40px 0 32px', textAlign: 'center' }}>
+      <div style={{
+        display: 'inline-block', padding: '6px 16px',
+        borderRadius: 999, border: '1px solid rgba(0, 229, 255, 0.4)',
+        background: 'rgba(0, 229, 255, 0.06)',
+        fontSize: 11, fontWeight: 700, letterSpacing: 2,
+        color: 'var(--accent)', marginBottom: 24, fontFamily: 'Sora'
+      }}>
+        {formatDate(event.event_date, { weekday: 'long', year: true }).toUpperCase()}
+      </div>
+      <h1 className="font-arcade grad-text" style={{
+        fontSize: 'clamp(32px, 7vw, 56px)', lineHeight: 1.05,
+        margin: 0, padding: '0 4px'
+      }}>
+        Davao K-Pop<br/>Convention<br/>2026
+      </h1>
+      <div style={{
+        marginTop: 24, fontSize: 14, color: 'var(--text-muted)',
+        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, flexWrap: 'wrap'
+      }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="pin" size={14} /> {event.venue_name}
+        </span>
+        <span style={{ color: 'var(--text-soft)' }}>·</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="clock" size={14} /> Doors 11am · Show 1pm
+        </span>
+      </div>
+      {event.description && (
+        <div style={{
+          marginTop: 16, fontSize: 13, color: 'var(--text-soft)',
+          maxWidth: 520, margin: '16px auto 0', lineHeight: 1.6
+        }}>
+          {event.description}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// STEP PROGRESS
+// ============================================================
+function StepProgress({ current, needSeats }) {
+  const steps = needSeats
+    ? ['Tickets', 'Attendees', 'Seats', 'Details', 'Payment']
+    : ['Tickets', 'Attendees', 'Details', 'Payment'];
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'center', gap: 6,
+      margin: '0 0 24px', flexWrap: 'wrap'
+    }}>
+      {steps.map((label, i) => {
+        const num = i + 1;
+        const done = num < current;
+        const active = num === current;
+        return (
+          <div key={label} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '5px 11px', borderRadius: 999,
+            background: active
+              ? 'linear-gradient(135deg, rgba(255, 27, 107, 0.18), rgba(199, 36, 255, 0.18))'
+              : done ? 'rgba(0, 230, 118, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+            border: active ? '1px solid rgba(255, 27, 107, 0.4)'
+              : done ? '1px solid rgba(0, 230, 118, 0.3)'
+              : '1px solid var(--border)',
+            fontSize: 11, fontWeight: 700,
+            color: active ? 'var(--text)' : done ? 'var(--success)' : 'var(--text-soft)',
+            letterSpacing: 0.3, fontFamily: 'Sora'
+          }}>
+            <span className="font-mono" style={{ fontSize: 10, opacity: 0.7 }}>
+              {done ? '✓' : num}
+            </span>
+            {label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
+// TICKETS STEP
+// ============================================================
+function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, totals }) {
+  const update = (id, delta, max) => {
+    setCart(prev => {
+      const current = prev[id] || 0;
+      let next = current + delta;
+      if (next < 0) next = 0;
+      if (max != null && next > max) next = max;
+      return { ...prev, [id]: next };
+    });
+  };
+
+  const remaining = (tt) => {
+    if (tt.has_assigned_seats) {
+      const total = seats.filter(s => s.ticket_type_id === tt.id).length;
+      const taken = seats.filter(s => s.ticket_type_id === tt.id && takenSeatIds.has(s.id)).length;
+      return total - taken;
+    }
+    return tt.capacity; // free-seating or unlimited; capacity is best estimate
+  };
+
+  return (
+    <Card>
+      <SectionTitle eyebrow="Step 1" title="Choose your tickets" />
+
+      <div style={{ display: 'grid', gap: 14 }}>
+        {ticketTypes.map(tt => {
+          const qty = cart[tt.id] || 0;
+          const rem = remaining(tt);
+          const max = rem == null ? 99 : rem;
+          const soldOut = rem != null && rem <= 0;
+          return (
+            <div key={tt.id} style={{
+              padding: '18px 18px',
+              background: qty > 0 ? 'rgba(255, 27, 107, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid ' + (qty > 0 ? 'rgba(255, 27, 107, 0.35)' : 'var(--border)'),
+              borderRadius: 14,
+              transition: 'all 0.18s',
+              opacity: soldOut ? 0.55 : 1
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span className="font-display" style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{tt.name}</span>
+                    {tt.category === 'dancer' && (
+                      <span style={{
+                        fontSize: 9, padding: '2px 8px', borderRadius: 999,
+                        background: 'rgba(0, 229, 255, 0.12)', color: 'var(--accent)',
+                        letterSpacing: 1, fontWeight: 700, border: '1px solid rgba(0, 229, 255, 0.3)',
+                        fontFamily: 'Sora'
+                      }}>DANCER</span>
+                    )}
+                    {tt.has_assigned_seats && (
+                      <span style={{
+                        fontSize: 9, padding: '2px 8px', borderRadius: 999,
+                        background: 'rgba(255, 179, 0, 0.12)', color: 'var(--warn)',
+                        letterSpacing: 1, fontWeight: 700, border: '1px solid rgba(255, 179, 0, 0.3)',
+                        fontFamily: 'Sora'
+                      }}>ASSIGNED SEAT</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 10 }}>
+                    {tt.description}
+                  </div>
+                  <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
+                    {peso(tt.price)}{tt.category === 'dancer' ? <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-soft)' }}> / member</span> : ''}
+                  </div>
+                  {rem != null && rem > 0 && rem <= 30 && (
+                    <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 6, fontWeight: 600 }}>
+                      Only {rem} left
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  padding: '6px 8px', borderRadius: 999,
+                  border: '1px solid var(--border)'
+                }}>
+                  <QtyBtn onClick={() => update(tt.id, -1)} disabled={qty === 0}>
+                    <Icon name="minus" size={14} />
+                  </QtyBtn>
+                  <span className="font-mono" style={{
+                    minWidth: 28, textAlign: 'center', fontSize: 16, fontWeight: 700
+                  }}>{soldOut ? '–' : qty}</span>
+                  <QtyBtn onClick={() => update(tt.id, 1, max)} disabled={soldOut || qty >= max}>
+                    <Icon name="plus" size={14} />
+                  </QtyBtn>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <FooterBar
+        summary={
+          <>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: 1, fontWeight: 600, fontFamily: 'Sora' }}>
+              {totals.ticketCount} TICKET{totals.ticketCount === 1 ? '' : 'S'}
+            </div>
+            <div className="font-display grad-text-tight" style={{ fontSize: 22, fontWeight: 800 }}>
+              {peso(totals.subtotal)}
+            </div>
+          </>
+        }
+        right={
+          <PrimaryBtn onClick={onNext} disabled={totals.ticketCount === 0}>
+            Continue <Icon name="arrow" size={14} />
+          </PrimaryBtn>
+        }
+      />
+    </Card>
+  );
+}
+
+const QtyBtn = ({ onClick, disabled, children }) => (
+  <button onClick={onClick} disabled={disabled} style={{
+    width: 32, height: 32, borderRadius: '50%',
+    background: disabled ? 'rgba(255,255,255,0.04)' : 'rgba(255, 27, 107, 0.15)',
+    color: disabled ? 'var(--text-soft)' : 'var(--brand)',
+    border: '1px solid ' + (disabled ? 'var(--border)' : 'rgba(255, 27, 107, 0.4)'),
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'inherit', transition: 'all 0.1s'
+  }}>{children}</button>
+);
+
+// ============================================================
+// ATTENDEES STEP
+// ============================================================
+function AttendeesStep({ attendees, setAttendees, ticketTypes, ravePrice, totals, onNext, onBack }) {
+  const allNamed = attendees.every(a => a.name && a.name.trim().length >= 2);
+
+  const ttName = (id) => {
+    const t = ticketTypes.find(tt => tt.id === id);
+    return t ? t.name : '—';
+  };
+
+  // Group attendees by ticket type for numbering
+  const counters = {};
+  const numbered = attendees.map(a => {
+    counters[a.ticketTypeId] = (counters[a.ticketTypeId] || 0) + 1;
+    return { ...a, _num: counters[a.ticketTypeId] };
+  });
+
+  const setField = (idx, field, value) => {
+    setAttendees(prev => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
+  };
+
+  return (
+    <Card>
+      <SectionTitle
+        eyebrow="Step 2"
+        title="Who's coming?"
+        subtitle="Each ticket needs a name (this is what'll print on the ticket). Tick the Rave Party box per attendee who wants to add it."
+      />
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {numbered.map((a, i) => (
+          <div key={i} style={{
+            padding: 14,
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid var(--border)',
+            borderRadius: 12
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
+              fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+              letterSpacing: 1.2, textTransform: 'uppercase', fontFamily: 'Sora'
+            }}>
+              <Icon name="user" size={12} />
+              {ttName(a.ticketTypeId)} #{a._num}
+            </div>
+            <input
+              type="text" value={a.name}
+              onChange={(e) => setField(i, 'name', e.target.value)}
+              placeholder="Full name"
+              style={{
+                width: '100%', padding: '11px 14px', borderRadius: 10,
+                fontSize: 14, marginBottom: 10, boxSizing: 'border-box'
+              }}
+            />
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'pointer', userSelect: 'none', padding: '6px 0'
+            }}>
+              <div className={'checkbox' + (a.hasRaveParty ? ' checked' : '')}
+                   onClick={() => setField(i, 'hasRaveParty', !a.hasRaveParty)}>
+                {a.hasRaveParty && <Icon name="check" size={13} strokeWidth={3} />}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  Add Rave Party Pass
+                </span>
+                <span style={{
+                  fontSize: 11, padding: '2px 8px', borderRadius: 999,
+                  background: 'rgba(199, 36, 255, 0.12)',
+                  color: 'var(--brand-2)', fontWeight: 700,
+                  border: '1px solid rgba(199, 36, 255, 0.3)'
+                }}>
+                  +{peso(ravePrice)}
+                </span>
+              </div>
+            </label>
+          </div>
+        ))}
+      </div>
+
+      <FooterBar
+        summary={
+          <>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: 1, fontWeight: 600, fontFamily: 'Sora' }}>
+              TOTAL · {totals.raveCount > 0 ? totals.raveCount + ' rave pass' + (totals.raveCount === 1 ? '' : 'es') : 'no add-ons'}
+            </div>
+            <div className="font-display grad-text-tight" style={{ fontSize: 22, fontWeight: 800 }}>
+              {peso(totals.total)}
+            </div>
+          </>
+        }
+        right={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GhostBtn onClick={onBack}><Icon name="back" size={14} /> Back</GhostBtn>
+            <PrimaryBtn onClick={onNext} disabled={!allNamed}>
+              Continue <Icon name="arrow" size={14} />
+            </PrimaryBtn>
+          </div>
+        }
+      />
+    </Card>
+  );
+}
+
+// ============================================================
+// SEATS STEP
+// ============================================================
+function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees, vipTicketType, onNext, onBack }) {
+  // Index of which VIP attendees have a seat
+  const vipAttendeeIndices = attendees
+    .map((a, i) => a.ticketTypeId === vipTicketType.id ? i : -1)
+    .filter(i => i >= 0);
+
+  const needed = vipAttendees.length;
+  const assigned = vipAttendees.filter(a => a.seatId).length;
+  const selectedSeatIds = new Set(vipAttendees.map(a => a.seatId).filter(Boolean));
+
+  const toggleSeat = (seat) => {
+    if (takenSeatIds.has(seat.id)) return;
+    // Find next unassigned VIP attendee or the one currently holding this seat
+    const idxWithThisSeat = attendees.findIndex(a => a.seatId === seat.id);
+    if (idxWithThisSeat >= 0) {
+      // Unassign
+      setAttendees(prev => prev.map((a, i) => i === idxWithThisSeat ? { ...a, seatId: null } : a));
+      return;
+    }
+    // Find next unassigned VIP attendee
+    const nextIdx = vipAttendeeIndices.find(i => !attendees[i].seatId);
+    if (nextIdx == null) return; // all assigned
+    setAttendees(prev => prev.map((a, i) => i === nextIdx ? { ...a, seatId: seat.id } : a));
+  };
+
+  // Build grid by row
+  const vipSeats = seats.filter(s => s.ticket_type_id === vipTicketType.id);
+  const rows = {};
+  vipSeats.forEach(s => {
+    if (!rows[s.row_label]) rows[s.row_label] = [];
+    rows[s.row_label].push(s);
+  });
+  Object.keys(rows).forEach(r => rows[r].sort((a, b) => a.seat_number - b.seat_number));
+  const rowLabels = Object.keys(rows).sort();
+
+  return (
+    <Card>
+      <SectionTitle
+        eyebrow="Step 3"
+        title="Pick your seats"
+        subtitle={'Select ' + needed + ' seat' + (needed === 1 ? '' : 's') + ' for your VIP attendees. Click a selected seat to remove it.'}
+      />
+
+      <div style={{
+        background: 'rgba(255, 27, 107, 0.06)',
+        border: '1px solid rgba(255, 27, 107, 0.2)',
+        borderRadius: 10, padding: '12px 16px',
+        fontSize: 13, fontWeight: 600,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+        marginBottom: 18
+      }}>
+        <span>Seats selected:</span>
+        <span className="font-mono" style={{ color: 'var(--brand)', fontSize: 16 }}>
+          {assigned} / {needed}
+        </span>
+      </div>
+
+      {/* Stage indicator */}
+      <div style={{
+        textAlign: 'center', padding: '10px 0',
+        background: 'linear-gradient(180deg, rgba(255, 27, 107, 0.15), transparent)',
+        borderRadius: 8, marginBottom: 24,
+        fontSize: 11, letterSpacing: 4, color: 'var(--text-muted)', fontWeight: 700, fontFamily: 'Sora'
+      }}>
+        ▼ STAGE ▼
+      </div>
+
+      {/* Seat grid */}
+      <div style={{
+        overflowX: 'auto', padding: '4px 0 12px', WebkitOverflowScrolling: 'touch'
+      }}>
+        <div style={{ display: 'inline-block', minWidth: '100%' }}>
+          {rowLabels.map(row => (
+            <div key={row} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              marginBottom: 4, justifyContent: 'center'
+            }}>
+              <span className="font-mono" style={{
+                fontSize: 10, color: 'var(--text-soft)', width: 18, textAlign: 'right', fontWeight: 700
+              }}>{row}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {rows[row].map(seat => {
+                  const taken = takenSeatIds.has(seat.id);
+                  const selected = selectedSeatIds.has(seat.id);
+                  const cls = 'seat' + (taken ? ' seat-taken' : '') + (selected ? ' seat-selected' : '');
+                  // Find which attendee this is
+                  const attIdx = attendees.findIndex(a => a.seatId === seat.id);
+                  const vipNum = attIdx >= 0
+                    ? vipAttendeeIndices.indexOf(attIdx) + 1
+                    : null;
+                  return (
+                    <div key={seat.id} className={cls}
+                         onClick={() => toggleSeat(seat)}
+                         title={row + seat.seat_number}>
+                      {selected ? vipNum : seat.seat_number}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Legend />
+
+      {/* Per-attendee summary */}
+      <div style={{ marginTop: 20, padding: 14, background: 'rgba(255, 255, 255, 0.02)', borderRadius: 10, border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-soft)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10, fontFamily: 'Sora' }}>
+          Your VIP attendees
+        </div>
+        <div style={{ display: 'grid', gap: 6 }}>
+          {vipAttendees.map((a, i) => {
+            const seat = a.seatId ? seats.find(s => s.id === a.seatId) : null;
+            return (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontSize: 13, padding: '4px 0'
+              }}>
+                <span><strong>VIP #{i + 1}</strong> · {a.name}</span>
+                <span className="font-mono" style={{
+                  color: seat ? 'var(--brand)' : 'var(--text-soft)',
+                  fontWeight: seat ? 700 : 400
+                }}>
+                  {seat ? seat.row_label + seat.seat_number : 'unassigned'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <FooterBar
+        right={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GhostBtn onClick={onBack}><Icon name="back" size={14} /> Back</GhostBtn>
+            <PrimaryBtn onClick={onNext} disabled={assigned !== needed}>
+              Continue <Icon name="arrow" size={14} />
+            </PrimaryBtn>
+          </div>
+        }
+      />
+    </Card>
+  );
+}
+
+function Legend() {
+  return (
+    <div style={{
+      display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-muted)',
+      justifyContent: 'center', flexWrap: 'wrap', marginTop: 12
+    }}>
+      <LegendDot color="rgba(255, 255, 255, 0.08)" label="Available" />
+      <LegendDot gradient label="Selected" />
+      <LegendDot color="rgba(255, 255, 255, 0.02)" label="Taken" border="rgba(255, 255, 255, 0.05)" />
+    </div>
+  );
+}
+function LegendDot({ color, gradient, label, border }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 16, height: 16, borderRadius: 4,
+        background: gradient ? 'linear-gradient(135deg, #FF1B6B, #C724FF)' : color,
+        border: gradient ? 'none' : ('1px solid ' + (border || 'rgba(255,255,255,0.1)'))
+      }} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// ============================================================
+// DETAILS STEP (pickup + buyer info)
+// ============================================================
+function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuyer, totals, onNext, onBack }) {
+  const valid =
+    pickupSlotId &&
+    buyer.name.trim().length >= 2 &&
+    buyer.email.trim().includes('@') &&
+    buyer.phone.trim().length >= 7;
+
+  return (
+    <Card>
+      <SectionTitle
+        eyebrow="Step 4"
+        title="Pickup & contact"
+        subtitle="When can you pick up your physical tickets? We'll also send confirmation to your email."
+      />
+
+      <SubLabel iconName="calendar">PICKUP DATE</SubLabel>
+      <select value={pickupSlotId || ''} onChange={(e) => setPickupSlotId(e.target.value || null)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 18, boxSizing: 'border-box', appearance: 'none' }}>
+        <option value="">Choose a Friday...</option>
+        {pickupSlots.map(s => (
+          <option key={s.id} value={s.id}>
+            {formatDate(s.slot_date, { weekday: 'long', year: true })} · {formatTime(s.slot_start)} – {formatTime(s.slot_end)}
+          </option>
+        ))}
+      </select>
+      {pickupSlotId && (
+        <div style={{
+          padding: '10px 12px', background: 'rgba(0, 229, 255, 0.06)',
+          border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: 8,
+          fontSize: 12, color: 'var(--accent)', marginBottom: 22,
+          display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          <Icon name="pin" size={13} />
+          {pickupSlots.find(s => s.id === pickupSlotId)?.location}
+        </div>
+      )}
+
+      <SubLabel iconName="user">YOUR NAME</SubLabel>
+      <input type="text" value={buyer.name} onChange={(e) => setBuyer({ ...buyer, name: e.target.value })}
+             placeholder="Full name"
+             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 14, boxSizing: 'border-box' }} />
+
+      <SubLabel iconName="mail">EMAIL</SubLabel>
+      <input type="email" value={buyer.email} onChange={(e) => setBuyer({ ...buyer, email: e.target.value })}
+             placeholder="you@email.com"
+             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 14, boxSizing: 'border-box' }} />
+
+      <SubLabel iconName="phone">PHONE</SubLabel>
+      <input type="tel" value={buyer.phone} onChange={(e) => setBuyer({ ...buyer, phone: e.target.value })}
+             placeholder="+63 9XX XXX XXXX"
+             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 18, boxSizing: 'border-box' }} />
+
+      <FooterBar
+        summary={
+          <>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: 1, fontWeight: 600, fontFamily: 'Sora' }}>TOTAL</div>
+            <div className="font-display grad-text-tight" style={{ fontSize: 22, fontWeight: 800 }}>{peso(totals.total)}</div>
+          </>
+        }
+        right={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GhostBtn onClick={onBack}><Icon name="back" size={14} /> Back</GhostBtn>
+            <PrimaryBtn onClick={onNext} disabled={!valid}>
+              Continue <Icon name="arrow" size={14} />
+            </PrimaryBtn>
+          </div>
+        }
+      />
+    </Card>
+  );
+}
+
+const SubLabel = ({ iconName, children }) => (
+  <div style={{
+    fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+    letterSpacing: 1.2, marginBottom: 8, fontFamily: 'Sora',
+    display: 'flex', alignItems: 'center', gap: 6
+  }}>
+    <Icon name={iconName} size={12} /> {children}
+  </div>
+);
+
+// ============================================================
+// PAYMENT STEP
+// ============================================================
+function PaymentStep({
+  event, totals, paymentRef, setPaymentRef, receiptFile, setReceiptFile,
+  submitting, submitError, attendees, buyer, pickupSlotId, ticketTypes, addOns,
+  onBack, onSubmit
+}) {
+  const fileRef = useRef(null);
+  const gcash = (event.payment_instructions && event.payment_instructions.gcash) || {};
+  const canSubmit = paymentRef.trim().length >= 4 && receiptFile && !submitting;
+
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { alert('Receipt too large (max 8 MB)'); return; }
+    setReceiptFile(f);
+  };
+
+  const copy = (text) => {
+    navigator.clipboard && navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <Card>
+      <SectionTitle
+        eyebrow="Step 5"
+        title="Pay & submit"
+        subtitle="Send the exact total via GCash, then enter your reference number and upload a receipt screenshot."
+      />
+
+      {/* GCash card */}
+      <div style={{
+        padding: 20, borderRadius: 14, marginBottom: 22,
+        background: 'linear-gradient(135deg, rgba(0, 124, 240, 0.18), rgba(0, 196, 255, 0.08))',
+        border: '1px solid rgba(0, 196, 255, 0.3)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 4 }}>
+          <div className="font-display" style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, color: 'var(--accent)' }}>
+            SEND VIA GCASH
+          </div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>
+            {peso(totals.total)}
+          </div>
+        </div>
+        <PayRow label="ACCOUNT NAME" value={gcash.account_name || '—'} onCopy={() => copy(gcash.account_name)} />
+        <PayRow label="NUMBER" value={gcash.account_number || '—'} mono onCopy={() => copy(gcash.account_number)} />
+        {gcash.instructions && (
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 12, lineHeight: 1.55 }}>
+            {gcash.instructions}
+          </div>
+        )}
+      </div>
+
+      <SubLabel iconName="ticket">GCASH REFERENCE NUMBER</SubLabel>
+      <input type="text" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)}
+             placeholder="e.g. 1234567890"
+             className="font-mono"
+             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 15, marginBottom: 18, boxSizing: 'border-box' }} />
+
+      <SubLabel iconName="upload">RECEIPT SCREENSHOT</SubLabel>
+      <div onClick={() => fileRef.current && fileRef.current.click()} style={{
+        padding: 18, borderRadius: 12, cursor: 'pointer',
+        background: receiptFile ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+        border: '1.5px dashed ' + (receiptFile ? 'rgba(0, 230, 118, 0.4)' : 'var(--border-strong)'),
+        textAlign: 'center', marginBottom: 18, transition: 'all 0.15s'
+      }}>
+        <input type="file" ref={fileRef} accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+        {receiptFile ? (
+          <>
+            <div style={{ color: 'var(--success)', marginBottom: 6, display: 'flex', justifyContent: 'center' }}>
+              <Icon name="check" size={20} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{receiptFile.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 4 }}>
+              {(receiptFile.size / 1024).toFixed(0)} KB · click to change
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ color: 'var(--text-muted)', marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
+              <Icon name="upload" size={22} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Tap to upload receipt</div>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 4 }}>PNG or JPG, max 8 MB</div>
+          </>
+        )}
+      </div>
+
+      <OrderSummary
+        attendees={attendees} ticketTypes={ticketTypes} totals={totals}
+      />
+
+      {submitError && (
+        <div style={{
+          background: 'var(--danger-bg)', color: '#FF6B85',
+          padding: '11px 14px', borderRadius: 10, fontSize: 12,
+          marginBottom: 14, lineHeight: 1.5,
+          border: '1px solid rgba(255, 23, 68, 0.3)',
+          display: 'flex', alignItems: 'flex-start', gap: 8
+        }}>
+          <Icon name="alert" size={14} />
+          <span>{submitError}</span>
+        </div>
+      )}
+
+      <FooterBar
+        right={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GhostBtn onClick={onBack} style={{ opacity: submitting ? 0.5 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
+              <Icon name="back" size={14} /> Back
+            </GhostBtn>
+            <PrimaryBtn onClick={onSubmit} disabled={!canSubmit}>
+              {submitting ? <><Spinner size={14} color="white" /> Submitting...</> : <>Submit Order <Icon name="check" size={14} /></>}
+            </PrimaryBtn>
+          </div>
+        }
+      />
+    </Card>
+  );
+}
+
+function PayRow({ label, value, mono, onCopy }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)'
+    }}>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontWeight: 600, fontFamily: 'Sora' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className={mono ? 'font-mono' : ''} style={{ fontSize: mono ? 15 : 14, fontWeight: 600 }}>{value}</span>
+        {onCopy && (
+          <button onClick={onCopy} title="Copy" style={{
+            background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: 4, cursor: 'pointer', color: 'var(--text-muted)',
+            display: 'flex', fontFamily: 'inherit'
+          }}>
+            <Icon name="copy" size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OrderSummary({ attendees, ticketTypes, totals }) {
+  // Group attendees by ticket type
+  const groups = {};
+  attendees.forEach(a => {
+    if (!groups[a.ticketTypeId]) groups[a.ticketTypeId] = [];
+    groups[a.ticketTypeId].push(a);
+  });
+  return (
+    <div style={{
+      padding: 14, borderRadius: 10, marginBottom: 18,
+      background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border)'
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-soft)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10, fontFamily: 'Sora' }}>
+        Order summary
+      </div>
+      <div style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+        {Object.entries(groups).map(([ttId, list]) => {
+          const tt = ticketTypes.find(t => t.id === ttId);
+          if (!tt) return null;
+          const lineTotal = list.length * Number(tt.price);
+          return (
+            <div key={ttId} style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{list.length}× {tt.name}</span>
+              <span className="font-mono">{peso(lineTotal)}</span>
+            </div>
+          );
+        })}
+        {totals.raveCount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>{totals.raveCount}× Rave Party Pass</span>
+            <span className="font-mono">{peso(totals.addOnTotal)}</span>
+          </div>
+        )}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          paddingTop: 10, marginTop: 6,
+          borderTop: '1px solid var(--border)',
+          fontSize: 14, fontWeight: 700
+        }}>
+          <span>Total</span>
+          <span className="font-mono grad-text-tight">{peso(totals.total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DONE SCREEN
+// ============================================================
+function DoneScreen({ order, event, onReturnHome }) {
+  return (
+    <div style={{
+      minHeight: '100vh', position: 'relative', overflow: 'hidden',
+      background: 'radial-gradient(ellipse at top, #1A0533 0%, #08020F 60%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
+    }}>
+      <div className="blob blob-magenta" />
+      <div className="blob blob-cyan" />
+
+      <div className="anim-slide-up" style={{ position: 'relative', zIndex: 1, maxWidth: 480, width: '100%' }}>
+        <Card style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 22, margin: '0 auto 20px',
+            background: 'linear-gradient(135deg, #00E676, #00A845)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 12px 36px rgba(0, 230, 118, 0.4)'
+          }}>
+            <Icon name="check" size={36} strokeWidth={3} />
+          </div>
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: 2,
+            color: 'var(--success)', textTransform: 'uppercase', marginBottom: 8, fontFamily: 'Sora'
+          }}>
+            Order Received
+          </div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 800, marginBottom: 14, lineHeight: 1.1 }}>
+            You're <span className="grad-text-tight">in!</span>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
+            We'll review your payment within 24 hours. You'll get a confirmation email at <strong style={{ color: 'var(--text)' }}>{order.buyer_email}</strong> when your tickets are ready.
+          </div>
+          <div style={{
+            padding: 16, borderRadius: 12,
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid var(--border)', marginBottom: 18
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-soft)', letterSpacing: 1.5, marginBottom: 6, fontFamily: 'Sora' }}>
+              ORDER NUMBER
+            </div>
+            <div className="font-mono grad-text" style={{ fontSize: 22, fontWeight: 800 }}>
+              {order.order_number}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 22 }}>
+            Save your order number for pickup. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
+          </div>
+          {onReturnHome && (
+            <button onClick={onReturnHome} style={{
+              padding: '12px 24px', borderRadius: 999,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'var(--text)', cursor: 'pointer',
+              fontFamily: 'Sora, sans-serif', fontWeight: 600,
+              fontSize: 12, letterSpacing: 1,
+            }}>
+              ← BACK TO HOMEPAGE
+            </button>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SHARED HELPERS
+// ============================================================
+function SectionTitle({ eyebrow, title, subtitle }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{
+        fontFamily: 'Sora', fontSize: 11, fontWeight: 700, letterSpacing: 2,
+        color: 'var(--brand)', textTransform: 'uppercase', marginBottom: 8
+      }}>{eyebrow}</div>
+      <div className="font-display" style={{
+        fontSize: 26, fontWeight: 800, lineHeight: 1.15, marginBottom: subtitle ? 8 : 0
+      }}>{title}</div>
+      {subtitle && (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          {subtitle}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FooterBar({ summary, right }) {
+  return (
+    <div style={{
+      marginTop: 24, padding: '16px 0 0', borderTop: '1px solid var(--border)',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap'
+    }}>
+      <div>{summary || <span />}</div>
+      <div>{right}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// MOUNT
+// ============================================================
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
