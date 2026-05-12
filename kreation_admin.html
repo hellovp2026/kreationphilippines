@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kreation Philippines — Admin Console</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --brand: #FF2E63;
+    --brand-dark: #E91E63;
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --border: #ECECE5;
+    --border-soft: #F5F5F0;
+    --text: #1A1A1A;
+    --text-muted: #888;
+    --text-soft: #999;
+    --success: #1B5E20;
+    --success-bg: #E8F5E9;
+    --warn: #A35A00;
+    --warn-bg: #FFF4E5;
+    --danger: #9F1A26;
+    --danger-bg: #FFEBEE;
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .font-display { font-family: 'Bricolage Grotesque', ui-sans-serif; letter-spacing: -0.3px; }
+  .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .anim-slide-up { animation: slideUp 0.25s ease-out; }
+  .anim-spin { animation: spin 0.8s linear infinite; }
+  .anim-fade-in { animation: fadeIn 0.2s ease-out; }
+  input:focus, textarea:focus { outline: none; border-color: var(--brand); }
+  kbd {
+    background: white; border: 1px solid #DDD; border-radius: 4px;
+    padding: 1px 6px; font-family: 'JetBrains Mono', ui-monospace;
+    font-size: 10px; font-weight: 600; color: #555;
+    box-shadow: 0 1px 0 #DDD;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+// ============================================================
+// CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+// ============================================================
+// ICONS (inline SVG, no dependency)
+// ============================================================
+const Icon = ({ name, size = 16, className = '', strokeWidth = 2 }) => {
+  const svgs = {
+    check: <polyline points="20 6 9 17 4 12" />,
+    x: <g><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></g>,
+    search: <g><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></g>,
+    clock: <g><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></g>,
+    ticket: <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z M13 5v2 M13 17v2 M13 11v2" />,
+    mail: <g><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></g>,
+    phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />,
+    chevronRight: <polyline points="9 18 15 12 9 6" />,
+    sparkles: <g><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z M5 3v4 M19 17v4 M3 5h4 M17 19h4" /></g>,
+    logout: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></g>,
+    hash: <g><line x1="4" y1="9" x2="20" y2="9" /><line x1="4" y1="15" x2="20" y2="15" /><line x1="10" y1="3" x2="8" y2="21" /><line x1="16" y1="3" x2="14" y2="21" /></g>,
+    card: <g><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></g>,
+    refresh: <g><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></g>,
+    zoom: <g><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></g>,
+    inbox: <g><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></g>,
+    alert: <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+    send: <g><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></g>,
+    lock: <g><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {svgs[name] || null}
+    </svg>
+  );
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+const peso = (n) => new Intl.NumberFormat('en-PH', {
+  style: 'currency', currency: 'PHP', minimumFractionDigits: 0
+}).format(Number(n) || 0);
+
+const formatDT = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-PH', {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+  });
+};
+
+const relTime = (iso) => {
+  if (!iso) return '—';
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs / 24) + 'd ago';
+};
+
+const hoursUntilExpiry = (uploadedAt) => {
+  if (!uploadedAt) return null;
+  const expiresAt = new Date(uploadedAt).getTime() + 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.floor((expiresAt - Date.now()) / (60 * 60 * 1000)));
+};
+
+// ============================================================
+// SHARED UI BITS
+// ============================================================
+const Spinner = ({ size = 24, color = 'var(--brand)' }) => (
+  <div className="anim-spin" style={{
+    width: size, height: size, border: '2.5px solid #EEE',
+    borderTopColor: color, borderRadius: '50%'
+  }} />
+);
+
+const StatusBadge = ({ status }) => {
+  const map = {
+    pending_payment: { bg: '#EEF2FF', fg: '#3730A3', label: 'Pending Payment' },
+    awaiting_verification: { bg: 'var(--warn-bg)', fg: 'var(--warn)', label: 'Awaiting Review' },
+    confirmed: { bg: 'var(--success-bg)', fg: 'var(--success)', label: 'Confirmed' },
+    rejected: { bg: 'var(--danger-bg)', fg: 'var(--danger)', label: 'Rejected' },
+    expired: { bg: '#F5F5F0', fg: '#666', label: 'Expired' },
+    cancelled: { bg: '#F5F5F0', fg: '#666', label: 'Cancelled' },
+  };
+  const s = map[status] || { bg: '#F5F5F0', fg: '#666', label: status };
+  return (
+    <span style={{
+      background: s.bg, color: s.fg, padding: '3px 10px', borderRadius: 999,
+      fontSize: 11, fontWeight: 600, letterSpacing: 0.2, whiteSpace: 'nowrap'
+    }}>{s.label}</span>
+  );
+};
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App() {
+  const [session, setSession] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(null);
+  const [adminRecord, setAdminRecord] = useState(null);
+  const [bootLoading, setBootLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setBootLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      if (!sess) {
+        setIsAdmin(null);
+        setAdminRecord(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    setIsAdmin(null);
+    supabase
+      .from('admins')
+      .select('*')
+      .eq('email', session.user.email)
+      .eq('is_active', true)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsAdmin(!!data);
+        setAdminRecord(data);
+      });
+  }, [session]);
+
+  if (bootLoading) return <BootScreen />;
+  if (!session) return <LoginScreen />;
+  if (isAdmin === null) return <BootScreen message="Verifying access..." />;
+  if (isAdmin === false) return <AccessDeniedScreen session={session} />;
+  return <Dashboard session={session} adminRecord={adminRecord} />;
+}
+
+// ============================================================
+// BOOT SCREEN
+// ============================================================
+function BootScreen({ message = 'Loading...' }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+      <Spinner size={32} />
+      <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{message}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState('email');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const sendCode = async (e) => {
+    if (e) e.preventDefault();
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email.');
+      return;
+    }
+    setLoading(true); setError(null);
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true }
+    });
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+    } else {
+      setStep('code');
+    }
+  };
+
+  const verifyCode = async (e) => {
+    if (e) e.preventDefault();
+    if (!code || code.length < 6) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setLoading(true); setError(null);
+    const { error: err } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code.trim(),
+      type: 'email'
+    });
+    setLoading(false);
+    if (err) setError(err.message);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20, padding: 40, width: '100%', maxWidth: 420,
+        border: '1px solid var(--border)', boxShadow: '0 12px 40px rgba(0,0,0,0.04)'
+      }} className="anim-fade-in">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(233, 30, 99, 0.3)', color: 'white'
+          }}>
+            <Icon name="ticket" size={20} strokeWidth={2.5} />
+          </div>
+          <div>
+            <div className="font-display" style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>
+              Kreation Philippines
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, fontWeight: 500, letterSpacing: 0.5 }}>
+              ADMIN CONSOLE
+            </div>
+          </div>
+        </div>
+
+        {step === 'email' && (
+          <form onSubmit={sendCode}>
+            <div className="font-display" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+              Sign in
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
+              Enter your email and we'll send you a one-time code.
+            </div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+              EMAIL
+            </label>
+            <input
+              type="email" value={email} autoFocus
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@kreationph.com"
+              style={{
+                width: '100%', padding: '12px 14px', border: '1px solid var(--border)',
+                borderRadius: 10, fontSize: 14, marginBottom: 16, fontFamily: 'inherit',
+                background: 'var(--bg)', boxSizing: 'border-box'
+              }}
+            />
+            {error && <ErrorBox message={error} />}
+            <button type="submit" disabled={loading} style={btnPrimary(loading)}>
+              {loading ? <Spinner size={14} color="white" /> : <>Send code <Icon name="send" size={14} /></>}
+            </button>
+          </form>
+        )}
+
+        {step === 'code' && (
+          <form onSubmit={verifyCode}>
+            <div className="font-display" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+              Check your inbox
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
+              We sent a 6-digit code to <strong style={{ color: 'var(--text)' }}>{email}</strong>.
+              Enter it below. The email also contains a link — ignore the link, use the code.
+            </div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+              6-DIGIT CODE
+            </label>
+            <input
+              type="text" value={code} autoFocus inputMode="numeric" maxLength={6}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="000000"
+              className="font-mono"
+              style={{
+                width: '100%', padding: '14px 16px', border: '1px solid var(--border)',
+                borderRadius: 10, fontSize: 22, letterSpacing: 8, marginBottom: 16,
+                fontWeight: 600, textAlign: 'center', background: 'var(--bg)', boxSizing: 'border-box'
+              }}
+            />
+            {error && <ErrorBox message={error} />}
+            <button type="submit" disabled={loading} style={btnPrimary(loading)}>
+              {loading ? <Spinner size={14} color="white" /> : <>Verify <Icon name="check" size={14} /></>}
+            </button>
+            <button type="button" onClick={() => { setStep('email'); setCode(''); setError(null); }}
+                    style={{
+                      background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                      fontSize: 12, marginTop: 14, cursor: 'pointer', width: '100%', padding: 4,
+                      fontFamily: 'inherit'
+                    }}>
+              ← Use a different email
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ErrorBox({ message }) {
+  return (
+    <div style={{
+      background: 'var(--danger-bg)', color: 'var(--danger)',
+      padding: '10px 14px', borderRadius: 8, fontSize: 12,
+      marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.5
+    }}>
+      <Icon name="alert" size={14} />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+const btnPrimary = (loading) => ({
+  width: '100%', padding: '12px 16px',
+  background: loading ? '#CCC' : 'linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)',
+  color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+  cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', gap: 8, fontFamily: 'inherit',
+  boxShadow: loading ? 'none' : '0 4px 12px rgba(233, 30, 99, 0.25)'
+});
+
+// ============================================================
+// ACCESS DENIED
+// ============================================================
+function AccessDeniedScreen({ session }) {
+  const logout = async () => { await supabase.auth.signOut(); };
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20, padding: 40, maxWidth: 460, width: '100%',
+        border: '1px solid var(--border)', textAlign: 'center'
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16, background: 'var(--danger-bg)',
+          color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16
+        }}>
+          <Icon name="lock" size={24} />
+        </div>
+        <div className="font-display" style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+          Access denied
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+          The email <strong style={{ color: 'var(--text)' }}>{session.user.email}</strong> is
+          not on the admin list. If you think this is a mistake, ask a super admin to add you.
+        </div>
+        <button onClick={logout} style={{
+          padding: '10px 16px', background: 'var(--surface)', color: 'var(--text)',
+          border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 500,
+          cursor: 'pointer', fontFamily: 'inherit'
+        }}>
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function Dashboard({ session, adminRecord }) {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('awaiting_verification');
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [zoomReceipt, setZoomReceipt] = useState(null);
+
+  const showToast = useCallback((msg, kind = 'success') => {
+    setToast({ msg, kind });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  const fetchOrders = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('orders_admin_view')
+      .select('*')
+      .order('receipt_uploaded_at', { ascending: true, nullsFirst: false });
+    if (error) {
+      console.error(error);
+      showToast('Could not load orders', 'warning');
+    } else {
+      setOrders(data || []);
+    }
+    setLoading(false);
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchOrders();
+    const channel = supabase
+      .channel('orders-changes')
+      .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'orders' },
+          () => fetchOrders())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchOrders]);
+
+  const filtered = useMemo(() => {
+    return orders
+      .filter((o) => o.status === tab)
+      .filter((o) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          (o.buyer_name || '').toLowerCase().includes(q) ||
+          (o.order_number || '').toLowerCase().includes(q) ||
+          (o.buyer_email || '').toLowerCase().includes(q) ||
+          (o.reference_number || '').toLowerCase().includes(q)
+        );
+      });
+  }, [orders, tab, search]);
+
+  const counts = useMemo(() => {
+    const c = { awaiting_verification: 0, confirmed: 0, rejected: 0, pending_payment: 0 };
+    orders.forEach((o) => { if (c[o.status] !== undefined) c[o.status]++; });
+    return c;
+  }, [orders]);
+
+  const pendingRevenue = useMemo(() =>
+    orders.filter((o) => o.status === 'awaiting_verification')
+          .reduce((s, o) => s + Number(o.total || 0), 0), [orders]);
+
+  const confirmedRevenue = useMemo(() =>
+    orders.filter((o) => o.status === 'confirmed')
+          .reduce((s, o) => s + Number(o.total || 0), 0), [orders]);
+
+  const selected = orders.find((o) => o.id === selectedId);
+
+  const handleConfirm = useCallback(async (id) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (error) {
+      showToast('Could not confirm: ' + error.message, 'warning');
+      return;
+    }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'confirmed_order',
+      resource_type: 'order',
+      resource_id: id,
+    });
+    showToast('Order confirmed — ticket will be emailed (once Resend is wired up)');
+    const idx = filtered.findIndex((x) => x.id === id);
+    const next = filtered[idx + 1] || filtered[idx - 1];
+    setSelectedId(next ? next.id : null);
+  }, [filtered, showToast, session]);
+
+  const handleReject = useCallback(async (id, reason) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'rejected',
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason || null,
+      })
+      .eq('id', id);
+    if (error) {
+      showToast('Could not reject: ' + error.message, 'warning');
+      return;
+    }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'rejected_order',
+      resource_type: 'order',
+      resource_id: id,
+      details: { reason }
+    });
+    showToast('Order rejected — buyer notified', 'warning');
+    const idx = filtered.findIndex((x) => x.id === id);
+    const next = filtered[idx + 1] || filtered[idx - 1];
+    setSelectedId(next ? next.id : null);
+  }, [filtered, showToast, session]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (!filtered.length) return;
+      const idx = filtered.findIndex((o) => o.id === selectedId);
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = filtered[Math.min(idx + 1, filtered.length - 1)] || filtered[0];
+        setSelectedId(next.id);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = filtered[Math.max(idx - 1, 0)];
+        if (prev) setSelectedId(prev.id);
+      } else if (e.key === 'Enter' && selectedId && tab === 'awaiting_verification') {
+        e.preventDefault();
+        handleConfirm(selectedId);
+      } else if (e.key === 'Escape') {
+        setSelectedId(null);
+        setZoomReceipt(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [filtered, selectedId, tab, handleConfirm]);
+
+  const logout = async () => { await supabase.auth.signOut(); };
+
+  return (
+    <div style={{ minHeight: '100vh' }}>
+      <TopBar session={session} adminRecord={adminRecord} onLogout={logout} onRefresh={fetchOrders} />
+
+      <div style={{ padding: '24px 32px 0', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <StatCard label="Awaiting Review" value={counts.awaiting_verification}
+                  sub={peso(pendingRevenue) + ' on hold'} accent="var(--brand)" iconName="clock" />
+        <StatCard label="Confirmed" value={counts.confirmed}
+                  sub={peso(confirmedRevenue) + ' collected'} accent="var(--success)" iconName="check" />
+        <StatCard label="Pending Payment" value={counts.pending_payment}
+                  sub="no receipt yet" accent="#3730A3" iconName="inbox" />
+        <StatCard label="Rejected" value={counts.rejected}
+                  sub="this event" accent="var(--danger)" iconName="x" />
+      </div>
+
+      <div style={{
+        padding: '24px 32px 64px',
+        display: 'grid',
+        gridTemplateColumns: selected ? '1fr 460px' : '1fr',
+        gap: 24,
+        transition: 'grid-template-columns 0.2s'
+      }}>
+        <div style={{
+          background: 'var(--surface)', borderRadius: 16,
+          border: '1px solid var(--border)', overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '14px 18px', borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {[
+                { key: 'awaiting_verification', label: 'Awaiting Review', count: counts.awaiting_verification },
+                { key: 'confirmed', label: 'Confirmed', count: counts.confirmed },
+                { key: 'rejected', label: 'Rejected', count: counts.rejected },
+                { key: 'pending_payment', label: 'No Receipt', count: counts.pending_payment },
+              ].map((t) => (
+                <button key={t.key} onClick={() => { setTab(t.key); setSelectedId(null); }}
+                        style={{
+                          padding: '8px 14px', borderRadius: 8,
+                          background: tab === t.key ? 'var(--text)' : 'transparent',
+                          color: tab === t.key ? 'white' : 'var(--text-muted)',
+                          border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s',
+                          fontFamily: 'inherit'
+                        }}>
+                  {t.label}
+                  <span className="font-mono" style={{
+                    background: tab === t.key ? 'rgba(255,255,255,0.2)' : 'var(--border-soft)',
+                    padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
+                  }}>{t.count}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ position: 'relative', flex: '0 1 280px' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)' }}>
+                <Icon name="search" size={14} />
+              </span>
+              <input value={search} onChange={(e) => setSearch(e.target.value)}
+                     placeholder="Search name, order #, ref no..."
+                     style={{
+                       width: '100%', padding: '8px 12px 8px 34px', border: '1px solid var(--border)',
+                       borderRadius: 8, fontSize: 13, background: 'var(--bg)', boxSizing: 'border-box',
+                       fontFamily: 'inherit'
+                     }} />
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 80, textAlign: 'center' }}>
+              <Spinner size={28} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState tab={tab} search={search} />
+          ) : (
+            <OrderList orders={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+          )}
+
+          {tab === 'awaiting_verification' && filtered.length > 0 && (
+            <div style={{
+              padding: '10px 18px', background: 'var(--bg)', borderTop: '1px solid var(--border)',
+              fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 16, flexWrap: 'wrap'
+            }}>
+              <span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span>
+              <span><kbd>Enter</kbd> confirm</span>
+              <span><kbd>Esc</kbd> close panel</span>
+            </div>
+          )}
+        </div>
+
+        {selected && (
+          <DetailPanel
+            order={selected}
+            onClose={() => setSelectedId(null)}
+            onConfirm={() => handleConfirm(selected.id)}
+            onReject={(reason) => handleReject(selected.id, reason)}
+            onZoomReceipt={(url) => setZoomReceipt(url)}
+          />
+        )}
+      </div>
+
+      {zoomReceipt && (
+        <div onClick={() => setZoomReceipt(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 24, cursor: 'zoom-out'
+        }}>
+          <img src={zoomReceipt} alt="Receipt"
+               style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12 }} />
+        </div>
+      )}
+
+      {toast && (
+        <div className="anim-slide-up" style={{
+          position: 'fixed', bottom: 32, right: 32, zIndex: 50,
+          background: toast.kind === 'warning' ? 'var(--danger)' : 'var(--success)',
+          color: 'white', padding: '14px 20px', borderRadius: 12,
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.18)', fontSize: 14, fontWeight: 500
+        }}>
+          <Icon name={toast.kind === 'warning' ? 'alert' : 'send'} size={16} />
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// TOP BAR
+// ============================================================
+function TopBar({ session, adminRecord, onLogout, onRefresh }) {
+  return (
+    <header style={{
+      background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+      padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      position: 'sticky', top: 0, zIndex: 10
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(233, 30, 99, 0.25)', color: 'white'
+        }}>
+          <Icon name="ticket" size={18} strokeWidth={2.5} />
+        </div>
+        <div>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>
+            Kreation Philippines
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, fontWeight: 500, letterSpacing: 0.5 }}>
+            ADMIN CONSOLE
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onRefresh} style={{
+          background: 'transparent', border: '1px solid var(--border)', borderRadius: 8,
+          padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 12, color: 'var(--text-muted)', fontFamily: 'inherit'
+        }}>
+          <Icon name="refresh" size={12} /> Refresh
+        </button>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '6px 12px', background: 'var(--border-soft)', borderRadius: 999
+        }}>
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%', background: 'var(--text)',
+            color: 'white', fontSize: 11, fontWeight: 600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            {(adminRecord?.name || session.user.email)[0].toUpperCase()}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>
+            {adminRecord?.name || session.user.email}
+          </span>
+        </div>
+        <button onClick={onLogout} title="Sign out" style={{
+          background: 'transparent', border: '1px solid var(--border)', borderRadius: 8,
+          padding: 8, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex',
+          fontFamily: 'inherit'
+        }}>
+          <Icon name="logout" size={14} />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// ============================================================
+// STAT CARD
+// ============================================================
+function StatCard({ label, value, sub, accent, iconName }) {
+  return (
+    <div style={{
+      flex: '1 1 200px', background: 'var(--surface)', borderRadius: 14,
+      padding: '16px 18px', border: '1px solid var(--border)',
+      position: 'relative', overflow: 'hidden'
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: accent }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+          {label}
+        </div>
+        <span style={{ color: accent, opacity: 0.8 }}><Icon name={iconName} size={16} /></span>
+      </div>
+      <div className="font-display" style={{ fontSize: 30, fontWeight: 700, lineHeight: 1 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>{sub}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// EMPTY STATE
+// ============================================================
+function EmptyState({ tab, search }) {
+  const msgs = {
+    awaiting_verification: { title: 'No receipts to review', body: 'Once buyers upload receipts, they\'ll appear here in order of upload time.' },
+    confirmed: { title: 'No confirmed orders yet', body: 'Orders you approve will show up here.' },
+    rejected: { title: 'No rejected orders', body: 'Orders you reject will be listed here.' },
+    pending_payment: { title: 'No pending payments', body: 'Buyers in checkout who haven\'t uploaded a receipt yet will appear here.' },
+  };
+  const m = msgs[tab] || { title: 'No orders', body: '' };
+  return (
+    <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: 16, background: 'var(--bg)',
+        color: 'var(--text-soft)', display: 'inline-flex',
+        alignItems: 'center', justifyContent: 'center', marginBottom: 16
+      }}>
+        <Icon name="inbox" size={24} />
+      </div>
+      <div className="font-display" style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+        {search ? 'No matches' : m.title}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, margin: '0 auto' }}>
+        {search ? 'Try a different search term.' : m.body}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ORDER LIST
+// ============================================================
+function OrderList({ orders, selectedId, onSelect }) {
+  return (
+    <div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: '60px 1fr 1.1fr 0.9fr 0.9fr 0.7fr 30px',
+        gap: 12, padding: '10px 18px', fontSize: 11, fontWeight: 600,
+        color: 'var(--text-soft)', letterSpacing: 0.6, textTransform: 'uppercase',
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <div>#</div>
+        <div>Buyer / Order</div>
+        <div>Seats / Type</div>
+        <div>Payment</div>
+        <div>Uploaded</div>
+        <div style={{ textAlign: 'right' }}>Total</div>
+        <div></div>
+      </div>
+      {orders.map((o, i) => (
+        <OrderRow key={o.id} order={o} position={i + 1}
+                  selected={selectedId === o.id}
+                  onClick={() => onSelect(o.id)} />
+      ))}
+    </div>
+  );
+}
+
+function OrderRow({ order, position, selected, onClick }) {
+  const expHrs = hoursUntilExpiry(order.receipt_uploaded_at);
+  const urgent = order.status === 'awaiting_verification' && expHrs !== null && expHrs < 6;
+  const apQty = (order.add_ons || []).reduce((s, a) => s + (a.quantity || 0), 0);
+  return (
+    <div onClick={onClick}
+         style={{
+           display: 'grid',
+           gridTemplateColumns: '60px 1fr 1.1fr 0.9fr 0.9fr 0.7fr 30px',
+           gap: 12, padding: '14px 18px', alignItems: 'center',
+           borderBottom: '1px solid var(--border-soft)',
+           background: selected ? '#FFF5F8' : 'white',
+           cursor: 'pointer', transition: 'background 0.1s',
+           borderLeft: selected ? '3px solid var(--brand)' : '3px solid transparent',
+           paddingLeft: selected ? 15 : 18
+         }}
+         onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--bg)'; }}
+         onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'white'; }}>
+      <div className="font-mono" style={{ fontSize: 11, color: '#BBB', fontWeight: 600 }}>{position}</div>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{order.buyer_name}</div>
+        <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-soft)' }}>{order.order_number}</div>
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>
+          {order.ticket_type_name || '—'}
+        </div>
+        <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {order.seat_labels || (order.ticket_type_category === 'dancer' ? 'Crew' : '—')}
+          {apQty > 0 && <span style={{ color: 'var(--brand)', marginLeft: 6 }}>+ {apQty} AP</span>}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{order.payment_method || '—'}</div>
+        <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {order.reference_number || '—'}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{relTime(order.receipt_uploaded_at)}</div>
+        {order.status === 'awaiting_verification' && expHrs !== null && (
+          <div className="font-mono" style={{
+            fontSize: 11, color: urgent ? 'var(--danger)' : 'var(--text-muted)',
+            fontWeight: urgent ? 600 : 400
+          }}>{expHrs}h left</div>
+        )}
+        {order.status !== 'awaiting_verification' && (
+          <div style={{ marginTop: 3 }}><StatusBadge status={order.status} /></div>
+        )}
+      </div>
+      <div className="font-mono" style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>
+        {peso(order.total)}
+      </div>
+      <div style={{ color: '#CCC' }}><Icon name="chevronRight" size={14} /></div>
+    </div>
+  );
+}
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+function DetailPanel({ order, onClose, onConfirm, onReject, onZoomReceipt }) {
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+
+  useEffect(() => {
+    setRejectMode(false);
+    setRejectReason('');
+    setReceiptUrl(null);
+    if (order.receipt_path) {
+      setReceiptLoading(true);
+      supabase.storage.from('receipts')
+        .createSignedUrl(order.receipt_path, 300)
+        .then(({ data, error }) => {
+          if (data?.signedUrl) setReceiptUrl(data.signedUrl);
+          setReceiptLoading(false);
+        });
+    }
+  }, [order.id, order.receipt_path]);
+
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
+      overflow: 'hidden', position: 'sticky', top: 88, alignSelf: 'start',
+      maxHeight: 'calc(100vh - 112px)', display: 'flex', flexDirection: 'column'
+    }} className="anim-fade-in">
+      <div style={{
+        padding: '16px 20px', borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <div>
+          <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 600 }}>
+            {order.order_number}
+          </div>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>
+            {order.buyer_name}
+          </div>
+        </div>
+        <button onClick={onClose} style={{
+          background: 'transparent', border: 'none', color: 'var(--text-soft)',
+          cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex'
+        }}>
+          <Icon name="x" size={18} />
+        </button>
+      </div>
+
+      <div style={{ overflow: 'auto', flex: 1 }}>
+        <Section>
+          <KV iconName="mail" label="Email" value={order.buyer_email} mono />
+          <KV iconName="phone" label="Phone" value={order.buyer_phone} mono />
+        </Section>
+
+        <Section title="Order">
+          <KV iconName="ticket" label="Type"
+              value={order.ticket_type_category === 'dancer' ? 'Dancer Registration' : 'Audience'} />
+          {order.ticket_type_name && (
+            <KV iconName="hash" label="Section" value={order.ticket_type_name} />
+          )}
+          {order.seat_labels && (
+            <KV iconName="hash" label="Seats" value={order.seat_labels} mono />
+          )}
+          {order.add_ons && order.add_ons.length > 0 && (
+            <KV iconName="sparkles" label="Add-ons"
+                value={order.add_ons.map(a =>
+                  a.quantity + '× ' + a.name + ' (' + peso(a.quantity * a.price_each) + ')'
+                ).join(', ')} />
+          )}
+          {order.pickup_date && (
+            <KV iconName="clock" label="Pickup"
+                value={order.pickup_date + ' • ' + (order.pickup_start || '') + '-' + (order.pickup_end || '')} />
+          )}
+          {order.internal_notes && (
+            <div style={{
+              marginTop: 10, padding: 10, background: '#FFFBEB', borderRadius: 8,
+              fontSize: 12, color: '#664D00', lineHeight: 1.5
+            }}>
+              <strong>Notes:</strong> {order.internal_notes}
+            </div>
+          )}
+        </Section>
+
+        <Section title="Receipt">
+          {receiptLoading ? (
+            <div style={{ padding: 20, textAlign: 'center' }}><Spinner size={20} /></div>
+          ) : receiptUrl ? (
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <img src={receiptUrl} alt="Receipt"
+                   onClick={() => onZoomReceipt(receiptUrl)}
+                   style={{ width: 100, borderRadius: 8, cursor: 'zoom-in', objectFit: 'cover' }} />
+              <div style={{ flex: 1, fontSize: 12 }}>
+                <KV iconName="card" label="Method" value={order.payment_method} compact />
+                <KV iconName="hash" label="Ref. No." value={order.reference_number} mono compact />
+                <KV iconName="clock" label="Uploaded" value={formatDT(order.receipt_uploaded_at)} compact />
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>
+              No receipt uploaded yet.
+            </div>
+          )}
+        </Section>
+
+        <Section title="Amount">
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.9 }}>
+            <Line label="Tickets" value={peso(order.subtotal)} />
+            {Number(order.add_on_total) > 0 && <Line label="Add-ons" value={peso(order.add_on_total)} />}
+            <Line label={<strong>Buyer Sent</strong>}
+                  value={<span className="font-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{peso(order.total)}</span>}
+                  large />
+          </div>
+        </Section>
+      </div>
+
+      <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+        {order.status === 'awaiting_verification' && !rejectMode && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setRejectMode(true)} style={{
+              padding: '12px 16px', background: 'var(--surface)', color: 'var(--danger)',
+              border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit'
+            }}>
+              <Icon name="x" size={14} /> Reject
+            </button>
+            <button onClick={onConfirm} style={{
+              flex: 1, padding: '12px 16px',
+              background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+              color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)', fontFamily: 'inherit'
+            }}>
+              <Icon name="check" size={15} /> Confirm & Send Ticket
+            </button>
+          </div>
+        )}
+        {order.status === 'awaiting_verification' && rejectMode && (
+          <div>
+            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Reason for rejection (sent to buyer)..." autoFocus
+                      style={{
+                        width: '100%', padding: 10, border: '1px solid var(--border)',
+                        borderRadius: 8, fontSize: 13, resize: 'none', minHeight: 60,
+                        marginBottom: 10, fontFamily: 'inherit', boxSizing: 'border-box'
+                      }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRejectMode(false)} style={{
+                padding: '10px 14px', background: 'var(--surface)',
+                border: '1px solid var(--border)', borderRadius: 8, fontSize: 12,
+                cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit'
+              }}>Cancel</button>
+              <button onClick={() => onReject(rejectReason)} style={{
+                flex: 1, padding: '10px 14px', background: 'var(--danger)', color: 'white',
+                border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit'
+              }}>Confirm Rejection</button>
+            </div>
+          </div>
+        )}
+        {order.status !== 'awaiting_verification' && order.status !== 'pending_payment' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <StatusBadge status={order.status} />
+            <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {order.status === 'confirmed' ? formatDT(order.confirmed_at) : formatDT(order.rejected_at)}
+            </span>
+          </div>
+        )}
+        {order.status === 'pending_payment' && (
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: 8 }}>
+            Waiting for buyer to upload receipt.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-soft)' }}>
+      {title && (
+        <div style={{
+          fontSize: 11, fontWeight: 600, color: 'var(--text-soft)',
+          letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10
+        }}>{title}</div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function KV({ iconName, label, value, mono, compact }) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'auto 70px 1fr', gap: 8,
+      alignItems: 'center', padding: compact ? '3px 0' : '5px 0', fontSize: 13
+    }}>
+      <span style={{ color: '#BBB' }}><Icon name={iconName} size={12} /></span>
+      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{label}</span>
+      <span className={mono ? 'font-mono' : ''}
+            style={{ fontWeight: 500, fontSize: mono ? 12 : 13, wordBreak: 'break-word' }}>
+        {value || '—'}
+      </span>
+    </div>
+  );
+}
+
+function Line({ label, value, large }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between',
+      alignItems: large ? 'baseline' : 'center',
+      paddingTop: large ? 8 : 0, marginTop: large ? 8 : 0,
+      borderTop: large ? '1px solid var(--border)' : 'none'
+    }}>
+      <span>{label}</span>
+      <span className="font-mono">{value}</span>
+    </div>
+  );
+}
+
+// ============================================================
+// MOUNT
+// ============================================================
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
