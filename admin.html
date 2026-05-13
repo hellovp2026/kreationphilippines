@@ -1481,7 +1481,53 @@ function Dashboard({ session, adminRecord }) {
     setSelectedId(next ? next.id : null);
   }, [filtered, showToast, session]);
 
-  // ===== REGISTRATIONS FETCH + REALTIME =====
+  const handleVoidOrder = useCallback(async (id, reason) => {
+    const order = orders.find((o) => o.id === id);
+    if (!order) return;
+
+    // Invalidate all still-active tickets for this order
+    const { data: activeTickets } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('order_id', id)
+      .eq('status', 'issued');
+
+    if (activeTickets && activeTickets.length > 0) {
+      const now = new Date().toISOString();
+      await supabase.from('tickets').update({
+        status: 'cancelled',
+        cancelled_at: now,
+        cancelled_by: session.user.email,
+        cancellation_reason: 'Order voided: ' + (reason || 'admin cleanup'),
+      }).in('id', activeTickets.map((t) => t.id));
+    }
+
+    // Void the order
+    const upd = await supabase.from('orders').update({
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: session.user.email,
+      cancellation_reason: reason || 'Admin void',
+    }).eq('id', id);
+
+    if (upd.error) {
+      showToast('Void failed: ' + upd.error.message, 'warning');
+      return;
+    }
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'order_voided',
+      resource_type: 'order',
+      resource_id: id,
+      details: { reason: reason || null, invalidatedTickets: activeTickets ? activeTickets.length : 0 },
+    });
+
+    showToast('Order voided' + (activeTickets && activeTickets.length > 0 ? ' (' + activeTickets.length + ' tickets invalidated)' : ''));
+    fetchTickets();
+    setSelectedId(null);
+  }, [orders, session, showToast, fetchTickets]);
+
   const fetchRegistrations = useCallback(async () => {
     const res = await supabase.from('registrations').select('*')
       .order('created_at', { ascending: false });
@@ -2624,6 +2670,7 @@ function Dashboard({ session, adminRecord }) {
             onClose={() => setSelectedId(null)}
             onConfirm={() => handleConfirm(selected.id)}
             onReject={(reason) => handleReject(selected.id, reason)}
+            onVoid={(reason) => handleVoidOrder(selected.id, reason)}
             onZoomReceipt={(url) => setZoomReceipt(url)}
             orderTickets={tickets.filter((t) => t.order_id === selected.id)}
             onGenerateTickets={() => handleGenerateTicketsForOrder(selected)}
@@ -2995,7 +3042,7 @@ function OrderRow({ order, position, selected, onClick }) {
   );
 }
 
-function DetailPanel({ order, onClose, onConfirm, onReject, onZoomReceipt,
+function DetailPanel({ order, onClose, onConfirm, onReject, onVoid, onZoomReceipt,
                        orderTickets, onGenerateTickets, onDownloadTicketsPDF,
                        onMarkTicketsSent, settings }) {
   const [rejectMode, setRejectMode] = useState(false);
@@ -3279,6 +3326,31 @@ function DetailPanel({ order, onClose, onConfirm, onReject, onZoomReceipt,
               </button>
             </div>
           )}
+        </Section>
+      )}
+
+      {order.status === 'confirmed' && (
+        <Section title="Danger Zone">
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+            Void this order if it was a test, fraud, or admin error. Any active tickets will be invalidated automatically. The order disappears from active counts but stays in the database for audit.
+          </div>
+          <button
+            onClick={() => {
+              const reason = window.prompt('Reason for voiding this order? (e.g., "test data cleanup")');
+              if (reason === null) return;
+              if (!window.confirm('Void this order? This will invalidate any remaining active tickets and remove the order from active counts.')) return;
+              onVoid(reason || 'Admin void');
+            }}
+            style={{
+              width: '100%', padding: '9px 14px', borderRadius: 8,
+              background: 'transparent',
+              border: '1px solid rgba(255, 23, 68, 0.4)',
+              color: '#FF6B7F', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+              fontFamily: 'inherit',
+            }}>
+            VOID ORDER
+          </button>
         </Section>
       )}
 
