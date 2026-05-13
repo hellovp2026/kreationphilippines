@@ -1524,9 +1524,10 @@ function Dashboard({ session, adminRecord }) {
     });
 
     showToast('Order voided' + (activeTickets && activeTickets.length > 0 ? ' (' + activeTickets.length + ' tickets invalidated)' : ''));
+    fetchOrders();
     fetchTickets();
     setSelectedId(null);
-  }, [orders, session, showToast, fetchTickets]);
+  }, [orders, session, showToast, fetchOrders, fetchTickets]);
 
   const fetchRegistrations = useCallback(async () => {
     const res = await supabase.from('registrations').select('*')
@@ -2297,8 +2298,9 @@ function Dashboard({ session, adminRecord }) {
     });
 
     showToast('Payment verified, ' + memberIds.length + ' member(s) marked paid');
+    fetchRegistrations();
     return true;
-  }, [session, showToast]);
+  }, [session, showToast, fetchRegistrations]);
 
   const handleDropMember = useCallback(async (member, reason) => {
     const upd = await supabase.from('registration_members').update({
@@ -2320,8 +2322,9 @@ function Dashboard({ session, adminRecord }) {
     });
 
     showToast(member.member_name + ' dropped');
+    fetchRegistrations();
     return true;
-  }, [session, showToast]);
+  }, [session, showToast, fetchRegistrations]);
 
   const handleAddSubstitute = useCallback(async (registrationId, memberName, memberAge, inheritFromMember) => {
     // Create new member, optionally inheriting payment status from dropped member
@@ -2361,8 +2364,9 @@ function Dashboard({ session, adminRecord }) {
     });
 
     showToast(memberName + ' added' + (inheritFromMember ? ' as substitute' : ''));
+    fetchRegistrations();
     return true;
-  }, [session, showToast]);
+  }, [session, showToast, fetchRegistrations]);
 
   const handleMarkMemberPaid = useCallback(async (member, note) => {
     // Manual mark-as-paid (for cash payments). Creates a synthetic payment record.
@@ -2390,8 +2394,9 @@ function Dashboard({ session, adminRecord }) {
     }).eq('id', member.id);
 
     showToast(member.member_name + ' marked as paid');
+    fetchRegistrations();
     return true;
-  }, [session, showToast]);
+  }, [session, showToast, fetchRegistrations]);
 
   const handleGeneratePerformerTickets = useCallback(async (registration) => {
     try {
