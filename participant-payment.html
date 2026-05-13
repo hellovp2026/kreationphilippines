@@ -157,7 +157,7 @@ const CATEGORY_LABEL = {
 // =====================================================
 function App() {
   const [step, setStep] = useState('lookup'); // lookup | select | pay | success
-  const [groupNameInput, setGroupNameInput] = useState('');
+  const [regCodeInput, setRegCodeInput] = useState('');
   const [lookupError, setLookupError] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
 
@@ -189,28 +189,38 @@ function App() {
 
   const lookupGroup = useCallback(async () => {
     setLookupError('');
-    const q = groupNameInput.trim();
+    // Normalize: uppercase, strip whitespace. Accept input with or without DKC- prefix.
+    let q = regCodeInput.trim().toUpperCase().replace(/\s+/g, '');
     if (!q) {
-      setLookupError('Enter your group name to continue.');
+      setLookupError('Enter your registration ID to continue.');
+      return;
+    }
+    // If the user pasted just the 4-char tail, add the DKC- prefix for them.
+    if (!q.startsWith('DKC-') && /^[A-Z0-9]{4}$/.test(q)) {
+      q = 'DKC-' + q;
+    }
+    // Validate shape: DKC- + 4 chars from safe alphabet.
+    if (!/^DKC-[A-Z0-9]{4}$/.test(q)) {
+      setLookupError("That doesn't look like a registration ID. It should be in the format DKC-XXXX (4 characters after the dash).");
       return;
     }
 
     setLookingUp(true);
     try {
-      // Case-insensitive exact match. Exclude withdrawn/rejected registrations.
+      // Exact match on registration_code. Exclude withdrawn/rejected registrations.
       const { data: regs, error: regErr } = await supabase
         .from('registrations')
         .select('*')
-        .ilike('group_name', q)
+        .eq('registration_code', q)
         .not('status', 'in', '("withdrawn","rejected")');
 
       if (regErr) throw regErr;
       if (!regs || regs.length === 0) {
-        setLookupError('Group not found. Check the spelling matches what you used on your registration form. If you\u2019re sure, message us on Instagram @kreationphilippines.');
+        setLookupError("Registration ID not found. Double-check what was sent to your group leader. If you're sure it's right, message us on Instagram @kreationphilippines.");
         return;
       }
 
-      // Take the first (no duplicates expected)
+      // Take the first (registration_code is UNIQUE so there's only one)
       const reg = regs[0];
 
       // Fetch members for this registration
@@ -249,7 +259,7 @@ function App() {
     } finally {
       setLookingUp(false);
     }
-  }, [groupNameInput]);
+  }, [regCodeInput]);
 
   const toggleMember = useCallback((id) => {
     setSelectedMemberIds((prev) => {
@@ -323,8 +333,8 @@ function App() {
       <main style={{ flex: 1, padding: '24px 16px 60px', maxWidth: 680, width: '100%', margin: '0 auto' }}>
         {step === 'lookup' && (
           <LookupStep
-            groupNameInput={groupNameInput}
-            setGroupNameInput={setGroupNameInput}
+            regCodeInput={regCodeInput}
+            setRegCodeInput={setRegCodeInput}
             lookupError={lookupError}
             lookingUp={lookingUp}
             onSubmit={lookupGroup}
@@ -424,8 +434,15 @@ function Footer() {
 // =====================================================
 // STEP: LOOKUP
 // =====================================================
-function LookupStep({ groupNameInput, setGroupNameInput, lookupError, lookingUp, onSubmit }) {
+function LookupStep({ regCodeInput, setRegCodeInput, lookupError, lookingUp, onSubmit }) {
   const handleSubmit = (e) => { e.preventDefault(); onSubmit(); };
+  // Live-uppercase + auto-insert dash after DKC if user types without it
+  const handleChange = (e) => {
+    let v = e.target.value.toUpperCase();
+    // Strip spaces
+    v = v.replace(/\s+/g, '');
+    setRegCodeInput(v);
+  };
   return (
     <div className="anim-fadein">
       <div className="font-mono" style={{
@@ -443,7 +460,7 @@ function LookupStep({ groupNameInput, setGroupNameInput, lookupError, lookingUp,
         Pay your performer registration fee.
       </h1>
       <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 28, fontSize: 14 }}>
-        Look up your group by the exact name you used on the registration form. You\u2019ll then tick which members you\u2019re paying for.
+        Enter the registration ID your group leader received when you registered. You{'\u2019'}ll then tick which members you{'\u2019'}re paying for.
       </p>
 
       <form onSubmit={handleSubmit} style={{
@@ -456,18 +473,29 @@ function LookupStep({ groupNameInput, setGroupNameInput, lookupError, lookingUp,
           display: 'block', fontSize: 10, letterSpacing: 1.5,
           color: 'var(--text-soft)', fontWeight: 700, marginBottom: 8,
         }}>
-          GROUP NAME *
+          REGISTRATION ID *
         </label>
         <input
           type="text"
-          value={groupNameInput}
-          onChange={(e) => setGroupNameInput(e.target.value)}
-          placeholder="Type your group name exactly as registered"
-          style={{ width: '100%', boxSizing: 'border-box' }}
+          value={regCodeInput}
+          onChange={handleChange}
+          placeholder="DKC-XXXX"
+          maxLength={8}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            fontFamily: 'JetBrains Mono, monospace',
+            letterSpacing: 4,
+            fontSize: 18,
+            textAlign: 'center',
+            textTransform: 'uppercase',
+          }}
           autoFocus
         />
         <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 8, lineHeight: 1.5 }}>
-          Tip: It\u2019s case-insensitive but the spelling has to match.
+          The ID looks like <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted)' }}>DKC-XXXX</span>. Ask your group leader if you don{'\u2019'}t have it.
         </div>
 
         {lookupError && (
@@ -543,7 +571,7 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
         color: 'var(--text-muted)',
         lineHeight: 1.5,
       }}>
-        Tick the members you\u2019re paying for. Members already paid are shown with a checkmark and can\u2019t be selected again.
+        Tick the members you{'\u2019'}re paying for. Members already paid are shown with a checkmark and can{'\u2019'}t be selected again.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
@@ -720,7 +748,7 @@ function PayStep({ registration, selectedCount, totalAmount, gcashName, gcashNum
         color: '#FFD08A',
         lineHeight: 1.5,
       }}>
-        Note: Tickets won\u2019t be issued until <strong>all members of your group</strong> are paid. Other members can come back to this page anytime to pay their share.
+        Note: Tickets won{'\u2019'}t be issued until <strong>all members of your group</strong> are paid. Other members can come back to this page anytime to pay their share.
       </div>
 
       {/* Reference number */}
