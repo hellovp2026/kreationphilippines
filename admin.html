@@ -918,6 +918,95 @@ async function generateTicketsForOrder(order, currentUserEmail) {
   return { tickets: inserted || [], alreadyGenerated: false };
 }
 
+// Generate performer tickets for a registration. One ticket per non-dropped, paid member.
+// Only callable when ALL non-dropped members are paid.
+async function generateTicketsForRegistration(registration, currentUserEmail) {
+  // Skip if tickets already generated for this registration
+  const { data: existing } = await supabase
+    .from('tickets')
+    .select('id')
+    .eq('registration_id', registration.id)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    return { tickets: [], alreadyGenerated: true };
+  }
+
+  // Fetch non-dropped members
+  const { data: members, error: memErr } = await supabase
+    .from('registration_members')
+    .select('*')
+    .eq('registration_id', registration.id)
+    .neq('payment_status', 'dropped')
+    .order('member_order');
+
+  if (memErr) throw memErr;
+  if (!members || members.length === 0) {
+    throw new Error('No members on this registration');
+  }
+
+  // Block generation if anyone hasn't paid
+  const unpaid = members.filter(function(m) { return m.payment_status !== 'paid'; });
+  if (unpaid.length > 0) {
+    throw new Error(unpaid.length + ' member(s) still unpaid. Cannot generate tickets yet.');
+  }
+
+  const newTickets = [];
+  for (let i = 0; i < members.length; i++) {
+    const m = members[i];
+    const code = await generateTicketCode('P', false, null);
+    const qrToken = generateQrToken();
+
+    newTickets.push({
+      ticket_code: code,
+      qr_token: qrToken,
+      registration_id: registration.id,
+      registration_member_id: m.id,
+      attendee_name: m.member_name,
+      attendee_email: registration.leader_email || null,
+      attendee_phone: registration.leader_phone || null,
+      ticket_type_name: 'Participant',
+      tier_code: 'P',
+      section: 'Performer Area',
+      group_name: registration.group_name,
+      group_category: registration.category,
+      price: 300,
+      status: 'issued',
+      is_walk_in: false,
+      issued_by: currentUserEmail || null,
+    });
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('tickets')
+    .insert(newTickets)
+    .select();
+
+  if (error) {
+    console.error('Performer ticket insert failed:', error);
+    throw error;
+  }
+
+  // Link each member to its new ticket
+  if (inserted && inserted.length > 0) {
+    for (let j = 0; j < inserted.length; j++) {
+      const t = inserted[j];
+      if (t.registration_member_id) {
+        await supabase.from('registration_members')
+          .update({ ticket_id: t.id })
+          .eq('id', t.registration_member_id);
+      }
+    }
+  }
+
+  // Mark registration as fully paid
+  await supabase.from('registrations')
+    .update({ status: 'paid' })
+    .eq('id', registration.id);
+
+  return { tickets: inserted || [], alreadyGenerated: false };
+}
+
+
 function App() {
   const [session, setSession] = useState(null);
   const [isAdmin, setIsAdmin] = useState(null);
@@ -2131,6 +2220,155 @@ function Dashboard({ session, adminRecord }) {
     fetchTickets();
   }, [session, showToast, fetchTickets]);
 
+  // ===== PERFORMER MEMBER + PAYMENT HANDLERS =====
+  const handleVerifyPayment = useCallback(async (payment) => {
+    // Mark payment as verified AND mark its covered members as paid
+    const now = new Date().toISOString();
+    const upd = await supabase.from('registration_payments').update({
+      verified_at: now,
+      verified_by: session.user.email,
+    }).eq('id', payment.id);
+    if (upd.error) {
+      showToast('Verify failed: ' + upd.error.message, 'warning');
+      return false;
+    }
+
+    const memberIds = payment.members_covered || [];
+    if (memberIds.length > 0) {
+      await supabase.from('registration_members').update({
+        payment_status: 'paid',
+        paid_at: now,
+        payment_id: payment.id,
+      }).in('id', memberIds);
+    }
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'payment_verified',
+      resource_type: 'registration_payment',
+      resource_id: payment.id,
+      details: { amount: payment.amount, members_count: memberIds.length },
+    });
+
+    showToast('Payment verified, ' + memberIds.length + ' member(s) marked paid');
+    return true;
+  }, [session, showToast]);
+
+  const handleDropMember = useCallback(async (member, reason) => {
+    const upd = await supabase.from('registration_members').update({
+      payment_status: 'dropped',
+      dropped_at: new Date().toISOString(),
+      dropped_reason: reason || 'Dropped by admin',
+    }).eq('id', member.id);
+    if (upd.error) {
+      showToast('Drop failed: ' + upd.error.message, 'warning');
+      return false;
+    }
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'member_dropped',
+      resource_type: 'registration_member',
+      resource_id: member.id,
+      details: { name: member.member_name, reason: reason || null },
+    });
+
+    showToast(member.member_name + ' dropped');
+    return true;
+  }, [session, showToast]);
+
+  const handleAddSubstitute = useCallback(async (registrationId, memberName, memberAge, inheritFromMember) => {
+    // Create new member, optionally inheriting payment status from dropped member
+    const newMember = {
+      registration_id: registrationId,
+      member_name: memberName,
+      member_age: memberAge || null,
+      payment_status: inheritFromMember ? 'paid' : 'unpaid',
+      paid_at: inheritFromMember ? new Date().toISOString() : null,
+      payment_id: inheritFromMember ? inheritFromMember.payment_id : null,
+      notes: inheritFromMember ? 'Substitute for ' + inheritFromMember.member_name : null,
+      added_by: session.user.email,
+    };
+
+    // Determine member_order — append after existing members
+    const { data: existing } = await supabase
+      .from('registration_members')
+      .select('member_order')
+      .eq('registration_id', registrationId)
+      .order('member_order', { ascending: false })
+      .limit(1);
+    const nextOrder = (existing && existing[0]) ? (existing[0].member_order || 0) + 1 : 1;
+    newMember.member_order = nextOrder;
+
+    const ins = await supabase.from('registration_members').insert(newMember).select().single();
+    if (ins.error) {
+      showToast('Add failed: ' + ins.error.message, 'warning');
+      return false;
+    }
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'member_added',
+      resource_type: 'registration_member',
+      resource_id: ins.data.id,
+      details: { name: memberName, inherited_from: inheritFromMember ? inheritFromMember.id : null },
+    });
+
+    showToast(memberName + ' added' + (inheritFromMember ? ' as substitute' : ''));
+    return true;
+  }, [session, showToast]);
+
+  const handleMarkMemberPaid = useCallback(async (member, note) => {
+    // Manual mark-as-paid (for cash payments). Creates a synthetic payment record.
+    const now = new Date().toISOString();
+    const payIns = await supabase.from('registration_payments').insert({
+      registration_id: member.registration_id,
+      amount: 300,
+      payment_method: 'cash',
+      members_covered: [member.id],
+      notes: note || 'Manual cash payment marked by admin',
+      recorded_by: session.user.email,
+      verified_at: now,
+      verified_by: session.user.email,
+    }).select().single();
+
+    if (payIns.error) {
+      showToast('Mark paid failed: ' + payIns.error.message, 'warning');
+      return false;
+    }
+
+    await supabase.from('registration_members').update({
+      payment_status: 'paid',
+      paid_at: now,
+      payment_id: payIns.data.id,
+    }).eq('id', member.id);
+
+    showToast(member.member_name + ' marked as paid');
+    return true;
+  }, [session, showToast]);
+
+  const handleGeneratePerformerTickets = useCallback(async (registration) => {
+    try {
+      const result = await generateTicketsForRegistration(registration, session.user.email);
+      if (result.alreadyGenerated) {
+        showToast('Performer tickets already generated for this group');
+      } else {
+        showToast('Generated ' + result.tickets.length + ' performer tickets');
+        await supabase.from('audit_log').insert({
+          actor_email: session.user.email,
+          action: 'performer_tickets_generated',
+          resource_type: 'registration',
+          resource_id: registration.id,
+          details: { count: result.tickets.length },
+        });
+      }
+      fetchTickets();
+      fetchRegistrations();
+    } catch (e) {
+      showToast('Generation failed: ' + e.message, 'warning');
+    }
+  }, [session, showToast, fetchTickets, fetchRegistrations]);
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
@@ -2418,6 +2656,11 @@ function Dashboard({ session, adminRecord }) {
         onEditTemplate={() => setShowTemplateEditor(true)}
         bulkSelected={bulkSelected}
         setBulkSelected={setBulkSelected}
+        onVerifyPayment={handleVerifyPayment}
+        onDropMember={handleDropMember}
+        onAddSubstitute={handleAddSubstitute}
+        onMarkMemberPaid={handleMarkMemberPaid}
+        onGeneratePerformerTickets={handleGeneratePerformerTickets}
       />
       ) : section === 'ban-revoke' ? (
       <BanRevokeView
@@ -3114,6 +3357,8 @@ function RegistrationsView({
   onMarkConfirmationSent, onUnmarkConfirmationSent,
   onExportCSV, emailTemplate, settings, onEditTemplate,
   bulkSelected, setBulkSelected,
+  onVerifyPayment, onDropMember, onAddSubstitute,
+  onMarkMemberPaid, onGeneratePerformerTickets,
 }) {
   // Bulk selection helpers
   const filteredIds = filteredRegs.map((r) => r.id);
@@ -3387,6 +3632,11 @@ function RegistrationsView({
             onUnmarkConfirmationSent={onUnmarkConfirmationSent}
             emailTemplate={emailTemplate}
             settings={settings}
+            onVerifyPayment={onVerifyPayment}
+            onDropMember={onDropMember}
+            onAddSubstitute={onAddSubstitute}
+            onMarkMemberPaid={onMarkMemberPaid}
+            onGeneratePerformerTickets={onGeneratePerformerTickets}
           />
         )}
       </div>
@@ -3523,7 +3773,9 @@ function RegistrationRow({ registration: r, selected, onClick, bulkChecked, onTo
 
 function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onSaveNotes,
                                     onMarkConfirmationSent, onUnmarkConfirmationSent,
-                                    emailTemplate, settings }) {
+                                    emailTemplate, settings,
+                                    onVerifyPayment, onDropMember, onAddSubstitute,
+                                    onMarkMemberPaid, onGeneratePerformerTickets }) {
   const [adminNotes, setAdminNotes] = useState(r.admin_notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
   const accent = CATEGORY_COLORS[r.category] || '#FFFFFF';
@@ -3615,19 +3867,14 @@ function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onS
           </div>
         </Section>
 
-        <Section title={'Members (' + (r.member_count || '?') + ')'}>
-          <pre style={{
-            margin: 0, padding: 12,
-            background: 'rgba(255,255,255,0.025)',
-            borderRadius: 8, border: '1px solid var(--border)',
-            color: 'var(--text)', fontSize: 12, lineHeight: 1.65,
-            fontFamily: 'JetBrains Mono, monospace',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            maxHeight: 240, overflow: 'auto',
-          }}>
-            {r.member_list || '—'}
-          </pre>
-        </Section>
+        <PerformerManagementSection
+          registration={r}
+          onVerifyPayment={onVerifyPayment}
+          onDropMember={onDropMember}
+          onAddSubstitute={onAddSubstitute}
+          onMarkMemberPaid={onMarkMemberPaid}
+          onGeneratePerformerTickets={onGeneratePerformerTickets}
+        />
 
         {r.notes && (
           <Section title="Notes from Group">
@@ -6608,6 +6855,462 @@ function DisputeRow({ item: it, onOpen }) {
           {it.type === 'ticket_cancelled' ? 'ticket value' : 'order value'}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PERFORMER MANAGEMENT SECTION
+// Renders inside RegistrationDetailPanel. Fetches members and payments
+// for the registration, shows status, lets admin verify payments,
+// drop/add substitute members, mark members paid manually, and
+// trigger performer ticket generation when all paid.
+// ============================================================
+function PerformerManagementSection({ registration, onVerifyPayment, onDropMember,
+                                      onAddSubstitute, onMarkMemberPaid,
+                                      onGeneratePerformerTickets }) {
+  const [members, setMembers] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [showAddSub, setShowAddSub] = useState(null); // null or droppedMember
+  const [showAddForm, setShowAddForm] = useState(false); // toggle for blank add
+  const [subName, setSubName] = useState('');
+  const [subAge, setSubAge] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const [memRes, payRes] = await Promise.all([
+      supabase.from('registration_members')
+        .select('*')
+        .eq('registration_id', registration.id)
+        .order('member_order'),
+      supabase.from('registration_payments')
+        .select('*')
+        .eq('registration_id', registration.id)
+        .order('created_at', { ascending: false }),
+    ]);
+    if (memRes.data) setMembers(memRes.data);
+    if (payRes.data) setPayments(payRes.data);
+    setLoading(false);
+  }, [registration.id]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Realtime subscription so admin sees buyer-side payments appear live
+  useEffect(() => {
+    const ch = supabase.channel('perf-mgmt-' + registration.id)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'registration_members',
+        filter: 'registration_id=eq.' + registration.id,
+      }, () => refresh())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'registration_payments',
+        filter: 'registration_id=eq.' + registration.id,
+      }, () => refresh())
+      .subscribe();
+    return function() { supabase.removeChannel(ch); };
+  }, [registration.id, refresh]);
+
+  const nonDropped = members.filter((m) => m.payment_status !== 'dropped');
+  const paidCount = nonDropped.filter((m) => m.payment_status === 'paid').length;
+  const unpaidCount = nonDropped.filter((m) => m.payment_status === 'unpaid').length;
+  const allPaid = unpaidCount === 0 && nonDropped.length > 0;
+  const totalCollected = payments
+    .filter((p) => p.verified_at)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const totalSubmitted = payments
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const hasTickets = registration.status === 'paid' ||
+    members.some((m) => m.ticket_id);
+
+  const handleVerify = async (payment) => {
+    setBusy(true);
+    await onVerifyPayment(payment);
+    setBusy(false);
+  };
+
+  const handleDrop = async (member) => {
+    const reason = window.prompt('Reason for dropping ' + member.member_name + '?');
+    if (reason === null) return;
+    setBusy(true);
+    const ok = await onDropMember(member, reason);
+    if (ok && member.payment_status === 'paid') {
+      // Offer substitute UX
+      const wantSub = window.confirm(
+        member.member_name + ' was paid. Add a substitute who inherits their payment?'
+      );
+      if (wantSub) setShowAddSub(member);
+    }
+    setBusy(false);
+  };
+
+  const handleAddSubmit = async () => {
+    if (!subName.trim()) { alert('Substitute name required'); return; }
+    setBusy(true);
+    const ok = await onAddSubstitute(
+      registration.id,
+      subName.trim(),
+      subAge ? parseInt(subAge, 10) : null,
+      showAddSub  // The dropped member to inherit from
+    );
+    if (ok) {
+      setShowAddSub(null);
+      setShowAddForm(false);
+      setSubName('');
+      setSubAge('');
+    }
+    setBusy(false);
+  };
+
+  const handleAddNew = async () => {
+    if (!subName.trim()) { alert('Member name required'); return; }
+    setBusy(true);
+    const ok = await onAddSubstitute(
+      registration.id,
+      subName.trim(),
+      subAge ? parseInt(subAge, 10) : null,
+      null  // No inherit — fresh member, unpaid
+    );
+    if (ok) {
+      setShowAddSub(null);
+      setShowAddForm(false);
+      setSubName('');
+      setSubAge('');
+    }
+    setBusy(false);
+  };
+
+  const handleMarkPaid = async (member) => {
+    if (!window.confirm('Mark ' + member.member_name + ' as PAID (₱300 cash)? This creates a cash payment record.')) return;
+    setBusy(true);
+    await onMarkMemberPaid(member, null);
+    setBusy(false);
+  };
+
+  const handleGenerate = async () => {
+    if (!window.confirm('Generate ' + nonDropped.length + ' performer tickets for "' + registration.group_name + '"? This is irreversible.')) return;
+    setBusy(true);
+    await onGeneratePerformerTickets(registration);
+    setBusy(false);
+  };
+
+  if (loading) {
+    return (
+      <Section title="Performer Management">
+        <div style={{ padding: 20, textAlign: 'center' }}><Spinner size={20} /></div>
+      </Section>
+    );
+  }
+
+  return (
+    <React.Fragment>
+      {/* PAYMENT PROGRESS */}
+      <Section title="Payment Progress">
+        <div style={{
+          padding: 14, borderRadius: 10,
+          background: allPaid ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 159, 26, 0.06)',
+          border: '1px solid ' + (allPaid ? 'rgba(0, 230, 118, 0.25)' : 'rgba(255, 159, 26, 0.25)'),
+          marginBottom: 10,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: allPaid ? '#00E676' : '#FFD08A' }}>
+              {allPaid ? 'ALL MEMBERS PAID' : (paidCount + ' of ' + nonDropped.length + ' members paid')}
+            </span>
+            <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+              {peso(totalCollected)} <span style={{ color: 'var(--text-soft)', fontSize: 11 }}>/ {peso(nonDropped.length * 300)}</span>
+            </span>
+          </div>
+          <div style={{
+            height: 6, background: 'rgba(255,255,255,0.08)',
+            borderRadius: 3, overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%',
+              width: (nonDropped.length > 0 ? (paidCount / nonDropped.length * 100) : 0) + '%',
+              background: allPaid ? 'linear-gradient(90deg, #00B248, #00E676)' : 'linear-gradient(90deg, #FF9F1A, #FFD08A)',
+              transition: 'width 0.3s',
+            }}></div>
+          </div>
+          {totalSubmitted > totalCollected && (
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 8 }}>
+              {peso(totalSubmitted - totalCollected)} pending verification below
+            </div>
+          )}
+        </div>
+
+        {hasTickets ? (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: 'rgba(0, 230, 118, 0.08)',
+            border: '1px solid rgba(0, 230, 118, 0.3)',
+            fontSize: 12, color: '#00E676', fontWeight: 600,
+            textAlign: 'center',
+          }}>
+            ✓ Performer tickets generated. View in Tickets tab.
+          </div>
+        ) : (
+          <button
+            onClick={handleGenerate}
+            disabled={!allPaid || busy || nonDropped.length === 0}
+            style={{
+              width: '100%', padding: '11px 16px', borderRadius: 10,
+              background: (!allPaid || nonDropped.length === 0)
+                ? 'rgba(255,255,255,0.05)'
+                : 'linear-gradient(135deg, #FF1B6B, #C724FF)',
+              border: '1px solid ' + (!allPaid ? 'rgba(255,255,255,0.1)' : 'transparent'),
+              color: (!allPaid || nonDropped.length === 0) ? 'var(--text-soft)' : 'white',
+              fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
+              cursor: (!allPaid || busy) ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            <Icon name="ticket" size={12} />
+            {allPaid ? 'GENERATE ' + nonDropped.length + ' PERFORMER TICKETS' : 'WAITING FOR ' + unpaidCount + ' MEMBER(S)'}
+          </button>
+        )}
+      </Section>
+
+      {/* MEMBER LIST */}
+      <Section title={'Members (' + nonDropped.length + (members.length > nonDropped.length ? ' active, ' + (members.length - nonDropped.length) + ' dropped' : '') + ')'}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {members.map((m) => {
+            const isPaid = m.payment_status === 'paid';
+            const isDropped = m.payment_status === 'dropped';
+            return (
+              <div key={m.id} style={{
+                padding: '10px 12px', borderRadius: 10,
+                background: isDropped ? 'rgba(255,255,255,0.02)' :
+                            isPaid ? 'rgba(0,230,118,0.06)' : 'rgba(255,255,255,0.04)',
+                border: '1px solid ' + (isDropped ? 'rgba(255,255,255,0.06)' :
+                                         isPaid ? 'rgba(0,230,118,0.25)' : 'var(--border)'),
+                opacity: isDropped ? 0.55 : 1,
+                display: 'grid',
+                gridTemplateColumns: '1fr auto',
+                gap: 10, alignItems: 'center',
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700, color: 'var(--text)',
+                    textDecoration: isDropped ? 'line-through' : 'none',
+                  }}>
+                    {m.member_name}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-soft)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {m.member_age && <span>Age {m.member_age}</span>}
+                    {isPaid && m.paid_at && <span>· Paid {formatDT(m.paid_at)}</span>}
+                    {isDropped && m.dropped_reason && (
+                      <span style={{ fontStyle: 'italic' }}>· Dropped: {m.dropped_reason}</span>
+                    )}
+                    {m.notes && <span style={{ fontStyle: 'italic' }}>· {m.notes}</span>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {isPaid ? (
+                    <span style={{
+                      padding: '3px 8px', borderRadius: 4,
+                      background: 'rgba(0,230,118,0.15)',
+                      border: '1px solid rgba(0,230,118,0.4)',
+                      fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                      color: '#00E676',
+                    }}>PAID</span>
+                  ) : isDropped ? (
+                    <span style={{
+                      padding: '3px 8px', borderRadius: 4,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                      color: 'var(--text-soft)',
+                    }}>DROPPED</span>
+                  ) : (
+                    <button onClick={() => handleMarkPaid(m)} disabled={busy || hasTickets}
+                      style={{
+                        padding: '4px 10px', borderRadius: 6,
+                        background: 'rgba(0,229,255,0.08)',
+                        border: '1px solid rgba(0,229,255,0.3)',
+                        color: '#00E5FF', cursor: busy ? 'wait' : 'pointer',
+                        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                        fontFamily: 'inherit',
+                      }}>
+                      MARK PAID (CASH)
+                    </button>
+                  )}
+                  {!isDropped && !hasTickets && (
+                    <button onClick={() => handleDrop(m)} disabled={busy}
+                      style={{
+                        padding: '4px 8px', borderRadius: 6,
+                        background: 'transparent',
+                        border: '1px solid rgba(255,23,68,0.3)',
+                        color: '#FF6B7F', cursor: busy ? 'wait' : 'pointer',
+                        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                        fontFamily: 'inherit',
+                      }}>
+                      DROP
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ADD MEMBER / SUBSTITUTE */}
+        {!hasTickets && (
+          <div style={{ marginTop: 12 }}>
+            {showAddSub !== null || showAddForm ? (
+              <div style={{
+                padding: 12, borderRadius: 10,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border)',
+              }}>
+                <div className="font-mono" style={{
+                  fontSize: 10, letterSpacing: 1.5, color: 'var(--text-soft)',
+                  fontWeight: 700, marginBottom: 8,
+                }}>
+                  {showAddSub ? 'SUBSTITUTE FOR ' + showAddSub.member_name : 'NEW MEMBER'}
+                </div>
+                {showAddSub && (
+                  <div style={{
+                    fontSize: 11, color: 'var(--text-muted)', marginBottom: 10,
+                    padding: '6px 8px',
+                    background: 'rgba(0,229,255,0.06)',
+                    borderRadius: 6,
+                  }}>
+                    This substitute inherits the ₱300 payment from {showAddSub.member_name} (no new payment needed).
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, marginBottom: 8 }}>
+                  <input type="text" value={subName} onChange={(e) => setSubName(e.target.value)}
+                    placeholder="Full name" style={{ fontSize: 13, padding: 8 }} />
+                  <input type="text" value={subAge} onChange={(e) => setSubAge(e.target.value)}
+                    placeholder="Age" style={{ fontSize: 13, padding: 8 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => { setShowAddSub(null); setShowAddForm(false); setSubName(''); setSubAge(''); }}
+                    style={{
+                      padding: '7px 14px', borderRadius: 6, fontSize: 11,
+                      background: 'transparent', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>Cancel</button>
+                  <button onClick={showAddSub ? handleAddSubmit : handleAddNew} disabled={busy || !subName.trim()}
+                    style={{
+                      flex: 1, padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                      background: 'linear-gradient(135deg, #FF1B6B, #C724FF)',
+                      border: 'none', color: 'white', cursor: busy ? 'wait' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}>
+                    {busy ? 'SAVING...' : (showAddSub ? 'ADD SUBSTITUTE' : 'ADD MEMBER')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowAddForm(true)}
+                style={{
+                  padding: '8px 14px', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px dashed var(--border)',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                  fontSize: 11, fontWeight: 600, letterSpacing: 0.5,
+                  width: '100%', fontFamily: 'inherit',
+                }}>
+                + Add member
+              </button>
+            )}
+          </div>
+        )}
+      </Section>
+
+      {/* PAYMENTS */}
+      <Section title={'Payments (' + payments.length + ')'}>
+        {payments.length === 0 ? (
+          <div style={{
+            fontSize: 12, color: 'var(--text-muted)',
+            padding: '8px 0', textAlign: 'center',
+          }}>
+            No payments recorded yet. Submissions from the participant payment page appear here.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {payments.map((p) => (
+              <PaymentRow key={p.id} payment={p} members={members}
+                onVerify={() => handleVerify(p)}
+                busy={busy} />
+            ))}
+          </div>
+        )}
+      </Section>
+    </React.Fragment>
+  );
+}
+
+function PaymentRow({ payment: p, members, onVerify, busy }) {
+  const verified = !!p.verified_at;
+  const memberMap = useMemo(() => {
+    const m = {};
+    members.forEach((mem) => { m[mem.id] = mem; });
+    return m;
+  }, [members]);
+  const coveredMembers = (p.members_covered || [])
+    .map((id) => memberMap[id])
+    .filter(Boolean);
+
+  return (
+    <div style={{
+      padding: '10px 12px', borderRadius: 10,
+      background: verified ? 'rgba(0,230,118,0.05)' : 'rgba(255,159,26,0.06)',
+      border: '1px solid ' + (verified ? 'rgba(0,230,118,0.25)' : 'rgba(255,159,26,0.3)'),
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+          {peso(p.amount)}
+        </span>
+        {verified ? (
+          <span style={{
+            padding: '2px 7px', borderRadius: 4,
+            background: 'rgba(0,230,118,0.15)',
+            border: '1px solid rgba(0,230,118,0.4)',
+            fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+            color: '#00E676',
+          }}>VERIFIED</span>
+        ) : (
+          <span style={{
+            padding: '2px 7px', borderRadius: 4,
+            background: 'rgba(255,159,26,0.15)',
+            border: '1px solid rgba(255,159,26,0.4)',
+            fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+            color: '#FFD08A',
+          }}>NEEDS VERIFY</span>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        {p.payment_method === 'gcash' ? 'GCash' : (p.payment_method || '—')}
+        {p.gcash_reference && <span> · Ref {p.gcash_reference}</span>}
+        <span> · {formatDT(p.created_at)}</span>
+      </div>
+      {coveredMembers.length > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 4 }}>
+          Covers: {coveredMembers.map((m) => m.member_name).join(', ')}
+        </div>
+      )}
+      {p.receipt_url && (
+        <div style={{ fontSize: 10, color: 'var(--text-soft)', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
+          📎 Receipt: {p.receipt_url}
+        </div>
+      )}
+      {!verified && (
+        <button onClick={onVerify} disabled={busy}
+          style={{
+            marginTop: 8, width: '100%', padding: '6px 10px', borderRadius: 6,
+            background: 'rgba(0,230,118,0.10)',
+            border: '1px solid rgba(0,230,118,0.4)',
+            color: '#00E676', cursor: busy ? 'wait' : 'pointer',
+            fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+            fontFamily: 'inherit',
+          }}>
+          ✓ VERIFY PAYMENT
+        </button>
+      )}
     </div>
   );
 }
