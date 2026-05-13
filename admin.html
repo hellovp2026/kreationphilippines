@@ -16,6 +16,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
   :root {
@@ -312,7 +313,7 @@ const StatusBadge = ({ status }) => {
     confirmed: { cls: 'badge-confirmed', label: 'Confirmed' },
     rejected: { cls: 'badge-rejected', label: 'Rejected' },
     expired: { cls: 'badge-muted', label: 'Expired' },
-    cancelled: { cls: 'badge-muted', label: 'Cancelled' },
+    cancelled: { cls: 'badge-muted', label: 'Invalidated' },
     // Registration statuses
     pending: { cls: 'badge-awaiting', label: 'Pending' },
     paid: { cls: 'badge-confirmed', label: 'Paid' },
@@ -625,276 +626,222 @@ async function fetchLogoForPDF() {
   }
 }
 
-// Tier-specific top band color (matches preview)
-function tierTopBandColor(tierCode) {
-  if (tierCode === 'V') return [60, 15, 110];      // rich purple — VIP
-  if (tierCode === 'R') return [27, 47, 110];      // blue-purple — Regular
-  if (tierCode === 'P') return [79, 10, 79];       // magenta-purple — Participant
-  return [42, 10, 79];
+// Tier-specific top band gradient (matches preview file exactly)
+function tierGradient(tierCode) {
+  if (tierCode === 'V')
+    return 'linear-gradient(135deg, #3D0F6E 0%, #5A1A8E 50%, #7A2BB0 100%)';
+  if (tierCode === 'R')
+    return 'linear-gradient(135deg, #1B2F6E 0%, #2C3D8E 50%, #3D2C8E 100%)';
+  if (tierCode === 'P')
+    return 'linear-gradient(135deg, #4F0A4F 0%, #6E1A6E 50%, #7A1A7E 100%)';
+  return 'linear-gradient(135deg, #2A0A4F 0%, #4F1A7A 100%)';
 }
 
-// Render a single ticket onto an existing jsPDF page.
-// Coordinates in mm. Page is US Letter (216 × 279). Ticket occupies center.
-function drawTicketOnPDF(doc, ticket, logoDataUrl) {
-  // Page metrics
-  const pageW = 216;
-  const pageH = 279;
+function tierPillGradient(tierCode) {
+  if (tierCode === 'V') return 'linear-gradient(90deg, #FF1B6B, #FF6FA8)';
+  if (tierCode === 'R') return 'linear-gradient(90deg, #00B8D4, #00E5FF)';
+  if (tierCode === 'P') return 'linear-gradient(90deg, #C724FF, #E366FF)';
+  return 'linear-gradient(90deg, #FF1B6B, #C724FF)';
+}
 
-  // Ticket box centered horizontally, top-anchored
-  const tW = 102;                                 // ~4 inches wide
-  const tH = 220;                                 // ~8.7 inches tall
-  const tX = (pageW - tW) / 2;
-  const tY = 22;                                  // top margin
+function tierAccentColor(tierCode) {
+  if (tierCode === 'V') return '#FF6FA8';
+  if (tierCode === 'R') return '#00E5FF';
+  if (tierCode === 'P') return '#E366FF';
+  return '#FFFFFF';
+}
 
+// Build a starfield SVG (cosmic dust overlay for top band)
+function buildStarfieldSVG() {
+  const stars = [];
+  // Deterministic positions so it's the same every time
+  const positions = [
+    [12, 18, 1.2], [28, 8, 0.8], [45, 22, 1.5], [62, 12, 0.9],
+    [78, 30, 1.1], [88, 15, 0.7], [18, 45, 1.0], [35, 38, 1.3],
+    [55, 50, 0.8], [72, 42, 1.1], [92, 50, 1.4], [8, 65, 0.9],
+    [25, 72, 1.2], [42, 65, 0.7], [58, 78, 1.0], [82, 70, 1.3],
+    [15, 85, 1.1], [38, 92, 0.8], [65, 88, 1.4], [85, 95, 0.9],
+    [50, 28, 0.6], [70, 60, 0.7], [22, 55, 0.8], [95, 32, 0.6],
+  ];
+  positions.forEach(function(p) {
+    stars.push('<circle cx="' + p[0] + '%" cy="' + p[1] + '%" r="' + p[2] + '" fill="white" opacity="0.6" />');
+  });
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0;pointer-events:none">' + stars.join('') + '</svg>';
+}
+
+// Render a ticket as HTML string (matches kreation_ticket_preview.html design)
+function renderTicketHTML(ticket, logoSrc) {
   const tierCode = ticket.tier_code || tierCodeFromName(ticket.ticket_type_name);
-
-  // ===== TOP BAND (dark gradient color) =====
-  const topH = 78;
-  const topColor = tierTopBandColor(tierCode);
-  doc.setFillColor(topColor[0], topColor[1], topColor[2]);
-  doc.roundedRect(tX, tY, tW, topH, 3, 3, 'F');
-  // Bottom corners of top band squared
-  doc.rect(tX, tY + topH - 4, tW, 4, 'F');
-
-  // KPH wordmark (top-left)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text('KPH.', tX + 5, tY + 8);
-
-  // Tier pill (top-right)
-  const tierLabel = (tierCode === 'V' ? 'VIP' : tierCode === 'R' ? 'REGULAR' : 'PARTICIPANT') + ' · ED.06';
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'bold');
-  const pillW = doc.getTextWidth(tierLabel) + 4;
-  const pillH = 4;
-  const pillX = tX + tW - pillW - 4;
-  const pillY = tY + 4.5;
-
-  // Pill background — tier-colored gradient approx (jsPDF doesn't do gradients, use solid)
-  if (tierCode === 'V') doc.setFillColor(255, 27, 107);
-  else if (tierCode === 'R') doc.setFillColor(0, 142, 168);
-  else doc.setFillColor(199, 36, 255);
-  doc.roundedRect(pillX, pillY, pillW, pillH, 2, 2, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.text(tierLabel, pillX + 2, pillY + 3);
-
-  // Logo image (centered in top band) — if logo loaded
-  if (logoDataUrl) {
-    const logoW = 70;
-    const logoH = 39;
-    const logoX = tX + (tW - logoW) / 2;
-    const logoY = tY + 14;
-    try {
-      doc.addImage(logoDataUrl, 'JPEG', logoX, logoY, logoW, logoH);
-    } catch (e) {
-      console.warn('Logo embed failed:', e);
-    }
-  } else {
-    // Fallback: text-only event title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text('DAVAO K-POP', tX + tW / 2, tY + 30, { align: 'center' });
-    doc.text('CONVENTION', tX + tW / 2, tY + 38, { align: 'center' });
-    doc.setFontSize(8);
-    doc.text('AUGUST 2026', tX + tW / 2, tY + 46, { align: 'center' });
-  }
-
-  // Date strip (bottom of top band)
-  doc.setFillColor(0, 0, 0);
-  doc.rect(tX, tY + topH - 9, tW, 9, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
+  const accent = tierAccentColor(tierCode);
+  const tierLabel = (tierCode === 'V' ? 'VIP' :
+                     tierCode === 'R' ? 'REGULAR' : 'PARTICIPANT');
+  const tierDisplay = tierCode === 'V' ? 'VIP' :
+                      tierCode === 'R' ? 'REGULAR' : 'PERF';
   const dateLine = (tierCode === 'P')
     ? 'AUG 22 · SAT · CALL TIME 11AM'
     : 'AUG 22 · SAT · DOORS 11AM · SHOW 1PM';
-  doc.text(dateLine, tX + tW / 2, tY + topH - 3, { align: 'center' });
 
-  // ===== INFO SECTION (white background) =====
-  let yCursor = tY + topH + 6;
+  const orderRefLabel = ticket._orderRefLabel || ('#' + (ticket.ticket_code || '—'));
+  const ticketCountLabel = ticket._ticketCountLabel || '';
 
-  // ATTENDEE
-  doc.setTextColor(140, 140, 140);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.text('ATTENDEE', tX + 5, yCursor);
+  // Logo fallback to text if image not available
+  const logoBlock = logoSrc
+    ? '<img src="' + logoSrc + '" alt="DKC 2026" style="display:block;width:280px;height:auto;margin:18px auto 0;position:relative;z-index:2"/>'
+    : '<div style="text-align:center;padding:30px 20px 10px;position:relative;z-index:2"><div style="font-family:Bungee,sans-serif;font-size:30px;color:white;line-height:1;letter-spacing:1px">DAVAO</div><div style="font-family:Bungee,sans-serif;font-size:30px;color:white;line-height:1;letter-spacing:1px;margin-top:2px">K-POP</div><div style="font-family:Bungee,sans-serif;font-size:22px;color:white;line-height:1;margin-top:4px;letter-spacing:2px">CONVENTION</div><div style="display:inline-block;margin-top:8px;padding:3px 10px;border:1px solid rgba(255,255,255,0.4);border-radius:999px;font-family:JetBrains Mono,monospace;font-size:10px;color:white;letter-spacing:1.5px">AUGUST 2026</div></div>';
 
-  yCursor += 6;
-  doc.setTextColor(8, 2, 15);
-  doc.setFontSize(15);
-  doc.text(ticket.attendee_name || 'Guest', tX + 5, yCursor);
+  // Build info grid based on tier (Performer vs Audience)
+  const infoGrid = (tierCode === 'P')
+    ? ('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 24px">' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">TIER</div><div style="font-family:Sora,sans-serif;font-size:18px;font-weight:800;color:' + accent + ';line-height:1">' + tierDisplay + '</div></div>' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">GROUP</div><div style="font-family:Sora,sans-serif;font-size:14px;font-weight:700;color:#08020F;line-height:1.2">' + (ticket.group_name || '—') + '</div></div>' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">CATEGORY</div><div style="font-family:Sora,sans-serif;font-size:13px;font-weight:700;color:#08020F;line-height:1.2">' + (ticket.group_category ? (ticket.group_category.charAt(0).toUpperCase() + ticket.group_category.slice(1).replace('-', ' ')) : '—') + '</div></div>' +
+      '</div>')
+    : ('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 24px">' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">TIER</div><div style="font-family:Sora,sans-serif;font-size:18px;font-weight:800;color:' + accent + ';line-height:1">' + tierDisplay + '</div></div>' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">SECTION</div><div style="font-family:Sora,sans-serif;font-size:14px;font-weight:700;color:#08020F;line-height:1.2">' + (ticket.section || sectionFromTier(tierCode)) + '</div></div>' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">SEAT</div><div style="font-family:Sora,sans-serif;font-size:18px;font-weight:800;color:#08020F;line-height:1">' + (ticket.seat_label || 'Free') + '</div></div>' +
+      '</div>');
 
-  yCursor += 9;
-  // Dashed separator
-  doc.setDrawColor(216, 212, 205);
-  doc.setLineDashPattern([1, 1], 0);
-  doc.line(tX + 5, yCursor, tX + tW - 5, yCursor);
-  doc.setLineDashPattern([], 0);
-
-  // 3-column info row: Tier · Section/Group · Seat/Category
-  yCursor += 5;
-  const colW = (tW - 10) / 3;
-
-  doc.setTextColor(140, 140, 140);
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TIER', tX + 5, yCursor);
-  doc.text(tierCode === 'P' ? 'GROUP' : 'SECTION', tX + 5 + colW, yCursor);
-  doc.text(tierCode === 'P' ? 'CATEGORY' : 'SEAT', tX + 5 + 2 * colW, yCursor);
-
-  yCursor += 5;
-  doc.setFontSize(11);
-  // Tier value with accent color
-  if (tierCode === 'V') doc.setTextColor(196, 0, 80);
-  else if (tierCode === 'R') doc.setTextColor(0, 142, 168);
-  else doc.setTextColor(132, 25, 181);
-  const tierDisplay = tierCode === 'V' ? 'VIP' : tierCode === 'R' ? 'REGULAR' : 'PERF';
-  doc.text(tierDisplay, tX + 5, yCursor);
-
-  doc.setTextColor(8, 2, 15);
-  if (tierCode === 'P') {
-    doc.text(ticket.group_name || '—', tX + 5 + colW, yCursor);
-    const catLabel = ticket.group_category
-      ? (ticket.group_category.charAt(0).toUpperCase() + ticket.group_category.slice(1).replace('-', ' '))
-      : '—';
-    doc.text(catLabel, tX + 5 + 2 * colW, yCursor);
-  } else {
-    doc.text(ticket.section || sectionFromTier(tierCode), tX + 5 + colW, yCursor);
-    doc.text(ticket.seat_label || 'Free', tX + 5 + 2 * colW, yCursor);
-  }
-
-  yCursor += 6;
-  doc.setLineDashPattern([1, 1], 0);
-  doc.line(tX + 5, yCursor, tX + tW - 5, yCursor);
-  doc.setLineDashPattern([], 0);
-
-  // VENUE
-  yCursor += 5;
-  doc.setTextColor(140, 140, 140);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.text('VENUE', tX + 5, yCursor);
-  yCursor += 4;
-  doc.setTextColor(8, 2, 15);
-  doc.setFontSize(10);
-  doc.text('CAP Grand Auditorium', tX + 5, yCursor);
-  yCursor += 4;
-  doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.text('37 Iñigo St · Poblacion · Davao City', tX + 5, yCursor);
-
-  yCursor += 5;
-  doc.setLineDashPattern([1, 1], 0);
-  doc.setDrawColor(216, 212, 205);
-  doc.line(tX + 5, yCursor, tX + tW - 5, yCursor);
-  doc.setLineDashPattern([], 0);
-
-  // ORDER / COUNT
-  yCursor += 5;
-  doc.setTextColor(8, 2, 15);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text(ticket._orderRefLabel || ('#' + (ticket.ticket_code || '—')), tX + 5, yCursor);
-
-  if (ticket._ticketCountLabel) {
-    doc.setTextColor(140, 140, 140);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.text(ticket._ticketCountLabel, tX + tW - 5, yCursor, { align: 'right' });
-  }
-
-  // ===== PERFORATION =====
-  const perfY = tY + topH + 92;
-  doc.setDrawColor(180, 175, 168);
-  doc.setLineDashPattern([1.5, 1.5], 0);
-  doc.line(tX + 5, perfY, tX + tW - 5, perfY);
-  doc.setLineDashPattern([], 0);
-  // Notches
-  doc.setFillColor(8, 2, 15);
-  doc.circle(tX, perfY, 2.5, 'F');
-  doc.circle(tX + tW, perfY, 2.5, 'F');
-
-  // ===== QR STUB =====
-  const qrY = perfY + 4;
-  const qrSize = 36;
-  const qrX = tX + (tW - qrSize) / 2;
-
-  // Generate QR
+  // Generate QR as data URL
+  let qrDataUrl = '';
   try {
     const qr = qrcode(0, 'M');
     qr.addData(ticket.qr_token || ticket.ticket_code || 'INVALID');
     qr.make();
-    const qrDataUrl = qr.createDataURL(8, 0);
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    qrDataUrl = qr.createDataURL(8, 0);
   } catch (e) {
     console.warn('QR render failed:', e);
-    // Fallback box
-    doc.setFillColor(8, 2, 15);
-    doc.rect(qrX, qrY, qrSize, qrSize, 'F');
   }
 
-  // Ticket code below QR
-  doc.setTextColor(8, 2, 15);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(11);
-  doc.text(ticket.ticket_code || '—', tX + tW / 2, qrY + qrSize + 5, { align: 'center' });
+  const walkInBadge = ticket.is_walk_in
+    ? '<div style="position:absolute;top:14px;left:14px;padding:3px 8px;background:rgba(255,179,0,0.95);border-radius:4px;font-family:JetBrains Mono,monospace;font-size:8px;font-weight:800;letter-spacing:1.5px;color:#08020F;z-index:5">WALK-IN</div>'
+    : '';
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.setTextColor(140, 140, 140);
-  doc.text('SCAN AT GATE · ONE-TIME USE', tX + tW / 2, qrY + qrSize + 9.5, { align: 'center' });
+  return (
+    '<div style="width:380px;background:#FFFFFF;font-family:Sora,sans-serif;color:#08020F;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(8,2,15,0.2);position:relative">' +
+      // TOP BAND
+      '<div style="position:relative;padding:0;background:' + tierGradient(tierCode) + ';overflow:hidden">' +
+        // Starfield overlay
+        buildStarfieldSVG() +
+        // Walk-in badge
+        walkInBadge +
+        // KPH wordmark
+        '<div style="position:absolute;top:16px;left:18px;font-family:Bungee,sans-serif;font-size:18px;color:white;letter-spacing:0.5px;z-index:3">KPH.</div>' +
+        // Tier pill
+        '<div style="position:absolute;top:18px;right:18px;padding:4px 10px;background:' + tierPillGradient(tierCode) + ';border-radius:999px;font-family:JetBrains Mono,monospace;font-size:9px;font-weight:800;letter-spacing:1.5px;color:white;z-index:3">' + tierLabel + ' · ED.06</div>' +
+        // Logo
+        '<div style="padding:42px 20px 16px;text-align:center;position:relative">' + logoBlock + '</div>' +
+        // Date strip (dark bar at bottom)
+        '<div style="background:rgba(8,2,15,0.85);padding:9px 20px;text-align:center;position:relative;z-index:2"><div style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;letter-spacing:2px;color:white">' + dateLine + '</div></div>' +
+      '</div>' +
 
-  // ===== FOOTER =====
-  const footY = tY + tH - 12;
-  doc.setFillColor(246, 244, 240);
-  doc.rect(tX, footY, tW, 12, 'F');
-  doc.setTextColor(85, 85, 85);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.text('KREATION EVENTS MANAGEMENT · BIR REGISTERED',
-    tX + tW / 2, footY + 4.5, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.text('Terms apply · Non-transferable · @kreationphilippines',
-    tX + tW / 2, footY + 8, { align: 'center' });
+      // INFO SECTION (white)
+      '<div style="padding:24px 0 16px">' +
+        // Attendee
+        '<div style="margin:0 24px 14px"><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:5px">ATTENDEE</div><div style="font-family:Sora,sans-serif;font-size:22px;font-weight:800;color:#08020F;line-height:1.1;letter-spacing:-0.3px">' + (ticket.attendee_name || 'Guest') + '</div></div>' +
+        // Dashed separator
+        '<div style="margin:0 24px;border-top:1px dashed #D8D4CD;margin-bottom:14px"></div>' +
+        // Info grid (tier/section/seat or tier/group/category)
+        infoGrid +
+        // Dashed separator
+        '<div style="margin:14px 24px;border-top:1px dashed #D8D4CD"></div>' +
+        // Venue
+        '<div style="margin:0 24px 12px"><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">VENUE</div><div style="font-family:Sora,sans-serif;font-size:14px;font-weight:700;color:#08020F;line-height:1.3">CAP Grand Auditorium</div><div style="font-family:Sora,sans-serif;font-size:11px;color:#64646E;margin-top:2px">37 Iñigo St · Poblacion · Davao City</div></div>' +
+        // Dashed separator
+        '<div style="margin:0 24px 12px;border-top:1px dashed #D8D4CD"></div>' +
+        // Order ref + count
+        '<div style="margin:0 24px;display:flex;justify-content:space-between;align-items:baseline"><div style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;color:#08020F;letter-spacing:0.5px">' + orderRefLabel + '</div>' +
+          (ticketCountLabel ? '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:#8C8C8C">' + ticketCountLabel + '</div>' : '') +
+        '</div>' +
+      '</div>' +
 
-  // Walk-in marker (if applicable)
-  if (ticket.is_walk_in) {
-    doc.setTextColor(255, 27, 107);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5);
-    doc.text('WALK-IN ISSUE', tX + 5, footY - 2);
-  }
+      // PERFORATION
+      '<div style="position:relative;height:24px;background:white"><div style="position:absolute;left:-12px;top:50%;width:24px;height:24px;background:#0E0420;border-radius:50%;transform:translateY(-50%)"></div><div style="position:absolute;right:-12px;top:50%;width:24px;height:24px;background:#0E0420;border-radius:50%;transform:translateY(-50%)"></div><div style="position:absolute;left:24px;right:24px;top:50%;border-top:2px dashed #B4AFA8;transform:translateY(-50%)"></div></div>' +
+
+      // QR STUB (white)
+      '<div style="padding:16px 20px 8px;background:white;text-align:center">' +
+        (qrDataUrl ? '<img src="' + qrDataUrl + '" alt="QR" style="width:150px;height:150px;display:block;margin:0 auto"/>' : '<div style="width:150px;height:150px;background:#08020F;margin:0 auto"></div>') +
+        '<div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:700;color:#08020F;margin-top:10px;letter-spacing:1px">' + (ticket.ticket_code || '—') + '</div>' +
+        '<div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;color:#8C8C8C;margin-top:4px;letter-spacing:1.5px">SCAN AT GATE · ONE-TIME USE</div>' +
+      '</div>' +
+
+      // FOOTER
+      '<div style="background:#F6F4F0;padding:10px 20px;text-align:center"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;color:#555;letter-spacing:0.8px">KREATION EVENTS MANAGEMENT · BIR REGISTERED</div><div style="font-family:Sora,sans-serif;font-size:9px;color:#8C8C8C;margin-top:3px">Terms apply · Non-transferable · @kreationphilippines</div></div>' +
+    '</div>'
+  );
 }
 
-// Generate a multi-page PDF, one ticket per page
+// Generate a multi-page PDF, one ticket per page — uses html2canvas for design fidelity
 async function generateTicketsPDF(tickets, orderRef) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     throw new Error('jsPDF library not loaded');
   }
+  if (typeof html2canvas !== 'function') {
+    throw new Error('html2canvas library not loaded');
+  }
+
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+  // Custom page size sized to fit one ticket nicely (4" x 8.7")
+  const doc = new jsPDF({ unit: 'mm', format: [102, 220] });
 
-  const logoDataUrl = await fetchLogoForPDF();
+  const logoSrc = await fetchLogoForPDF();
 
-  tickets.forEach(function(t, idx) {
-    if (idx > 0) doc.addPage();
-    // Decorate ticket with display labels
-    const decoratedTicket = Object.assign({}, t, {
-      _orderRefLabel: orderRef ? '#' + orderRef : '#' + (t.ticket_code || ''),
-      _ticketCountLabel: tickets.length > 1
-        ? (idx + 1) + ' of ' + tickets.length + ' tickets'
-        : null,
-    });
-    drawTicketOnPDF(doc, decoratedTicket, logoDataUrl);
-  });
+  // Wait for Google Fonts to load (Bungee, Sora, JetBrains Mono)
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) { /* continue */ }
+  }
+
+  // Build offscreen container
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;background:#FFFFFF;padding:0;margin:0;';
+  document.body.appendChild(container);
+
+  try {
+    for (let i = 0; i < tickets.length; i++) {
+      const t = tickets[i];
+      const decorated = Object.assign({}, t, {
+        _orderRefLabel: orderRef ? '#' + orderRef : '#' + (t.ticket_code || ''),
+        _ticketCountLabel: tickets.length > 1
+          ? (i + 1) + ' of ' + tickets.length + ' tickets'
+          : '',
+      });
+
+      container.innerHTML = renderTicketHTML(decorated, logoSrc);
+
+      // Wait for images inside the ticket to load
+      const imgs = container.querySelectorAll('img');
+      await Promise.all(Array.from(imgs).map(function(img) {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(function(resolve) {
+          img.onload = resolve;
+          img.onerror = resolve;
+          setTimeout(resolve, 2000);
+        });
+      }));
+
+      // Render to canvas (2x for retina sharpness)
+      const canvas = await html2canvas(container.firstElementChild, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+
+      if (i > 0) doc.addPage();
+      // Embed image filling the page
+      doc.addImage(imgData, 'JPEG', 0, 0, 102, 220);
+    }
+  } finally {
+    document.body.removeChild(container);
+  }
 
   return doc;
 }
 
-// Create N tickets for an order, return inserted rows
+// Create one ticket per attendee for this order. Uses the attendees table
+// for per-ticket data: name, ticket_type, seat. Reads order.total for price.
 async function generateTicketsForOrder(order, currentUserEmail) {
   // Skip if tickets already generated for this order
   const { data: existing } = await supabase
@@ -906,45 +853,52 @@ async function generateTicketsForOrder(order, currentUserEmail) {
     return { tickets: [], alreadyGenerated: true };
   }
 
-  const tierCode = tierCodeFromName(order.ticket_type_name);
-  const quantity = order.quantity || 1;
+  // Fetch attendees with their ticket type names + seats
+  const { data: attendees, error: attErr } = await supabase
+    .from('attendees')
+    .select(
+      'id, name, ticket_type_id, seat_id, display_order, ' +
+      'ticket_types(name), seats(seat_label)'
+    )
+    .eq('order_id', order.id)
+    .order('display_order');
 
-  // For VIP orders, fetch the assigned seats
-  let assignedSeats = [];
-  if (tierCode === 'V') {
-    const { data: seatData } = await supabase
-      .from('order_seats')
-      .select('seat_id, seats(seat_label)')
-      .eq('order_id', order.id);
-    if (seatData) {
-      assignedSeats = seatData.map(function(s) {
-        return s.seats && s.seats.seat_label ? s.seats.seat_label : null;
-      }).filter(Boolean);
-    }
+  if (attErr) {
+    console.error('Attendee fetch failed:', attErr);
+    throw attErr;
   }
 
+  if (!attendees || attendees.length === 0) {
+    // Order with no attendees — nothing to generate
+    return { tickets: [], alreadyGenerated: false };
+  }
+
+  // Per-ticket price: divide order total by attendee count
+  const total = Number(order.total) || 0;
+  const perTicketPrice = total > 0 ? total / attendees.length : 0;
+
   const newTickets = [];
-  for (let i = 0; i < quantity; i++) {
-    const seatLabel = assignedSeats[i] || null;
+  for (let i = 0; i < attendees.length; i++) {
+    const att = attendees[i];
+    const typeName = (att.ticket_types && att.ticket_types.name) || order.ticket_type_name || 'Regular';
+    const tierCode = tierCodeFromName(typeName);
+    const seatLabel = (att.seats && att.seats.seat_label) || null;
+
     const code = await generateTicketCode(tierCode, !!order.is_walk_in, seatLabel);
     const qrToken = generateQrToken();
-
-    // Attendee name: for now uses buyer's name + index if multiple.
-    // Admin can edit names individually via transfer flow.
-    let attendeeName = order.buyer_name || 'Guest';
-    if (quantity > 1) attendeeName = attendeeName + ' (Ticket ' + (i + 1) + ')';
 
     newTickets.push({
       ticket_code: code,
       qr_token: qrToken,
       order_id: order.id,
-      attendee_name: attendeeName,
+      attendee_name: att.name || order.buyer_name || 'Guest',
       attendee_email: order.buyer_email || null,
       attendee_phone: order.buyer_phone || null,
-      ticket_type_name: order.ticket_type_name || 'Regular',
+      ticket_type_name: typeName,
       tier_code: tierCode,
       section: sectionFromTier(tierCode),
       seat_label: seatLabel,
+      price: perTicketPrice,
       status: 'issued',
       is_walk_in: !!order.is_walk_in,
       issued_by: currentUserEmail || null,
@@ -1721,9 +1675,11 @@ function Dashboard({ session, adminRecord }) {
 
   // Gross income = sum of confirmed orders
   const grossIncome = useMemo(() => {
-    return orders.filter((o) => o.status === 'confirmed')
-                 .reduce((s, o) => s + Number(o.total || 0), 0);
-  }, [orders]);
+    // Sum prices of active tickets only (excludes cancelled, excludes Path B old)
+    return tickets
+      .filter((t) => t.status !== 'cancelled' && !t.reissued_to_ticket_id)
+      .reduce((s, t) => s + Number(t.price || 0), 0);
+  }, [tickets]);
 
   const totalBudget = useMemo(() => {
     return budget.reduce((s, b) => s + Number(b.allocated || 0), 0);
@@ -1904,6 +1860,8 @@ function Dashboard({ session, adminRecord }) {
   const filteredTickets = useMemo(() => {
     const q = ticketSearch.trim().toLowerCase();
     return tickets.filter((t) => {
+      // Hide Path B old cancellations from main tickets view (visible in Disputes/Transfer log instead)
+      if (t.reissued_to_ticket_id) return false;
       if (ticketTab !== 'all' && t.status !== ticketTab) return false;
       if (ticketTierFilter !== 'all' && t.tier_code !== ticketTierFilter) return false;
       if (ticketSourceFilter === 'walkin' && !t.is_walk_in) return false;
@@ -1920,17 +1878,85 @@ function Dashboard({ session, adminRecord }) {
   }, [tickets, ticketTab, ticketTierFilter, ticketSourceFilter, ticketSearch]);
 
   const ticketCounts = useMemo(() => {
+    // "Active" tickets (excluded from disputes) = issued + used, ignoring Path B old-ticket cancellations
+    const isActive = (t) => t.status !== 'cancelled';
+    const isDisplayed = (t) => !t.reissued_to_ticket_id; // Path B old tickets hidden from main list
     return {
-      all: tickets.length,
-      issued: tickets.filter((t) => t.status === 'issued').length,
-      used: tickets.filter((t) => t.status === 'used').length,
-      cancelled: tickets.filter((t) => t.status === 'cancelled').length,
-      walkin: tickets.filter((t) => t.is_walk_in).length,
-      vip: tickets.filter((t) => t.tier_code === 'V').length,
-      regular: tickets.filter((t) => t.tier_code === 'R').length,
-      participant: tickets.filter((t) => t.tier_code === 'P').length,
+      // Counts on visible tickets only (excludes Path B old)
+      all: tickets.filter(isDisplayed).length,
+      issued: tickets.filter((t) => t.status === 'issued' && isDisplayed(t)).length,
+      used: tickets.filter((t) => t.status === 'used' && isDisplayed(t)).length,
+      cancelled: tickets.filter((t) => t.status === 'cancelled' && isDisplayed(t)).length,
+      // For stat cards (only active, non-cancelled)
+      walkin: tickets.filter((t) => t.is_walk_in && isActive(t) && isDisplayed(t)).length,
+      vip: tickets.filter((t) => t.tier_code === 'V' && isActive(t) && isDisplayed(t)).length,
+      regular: tickets.filter((t) => t.tier_code === 'R' && isActive(t) && isDisplayed(t)).length,
+      participant: tickets.filter((t) => t.tier_code === 'P' && isActive(t) && isDisplayed(t)).length,
+      // Total ACTIVE for headline stat
+      activeTotal: tickets.filter((t) => isActive(t) && isDisplayed(t)).length,
     };
   }, [tickets]);
+
+  // Active counts for navigation pills.
+  // Tickets: hide invalidated + Path B old.
+  // Orders: standard "live" states.
+  const activeCounts = useMemo(() => {
+    return {
+      activeOrders: orders.filter(
+        (o) => ['pending_payment', 'awaiting_verification', 'confirmed'].includes(o.status)
+      ).length,
+      activeTickets: tickets.filter(
+        (t) => t.status !== 'cancelled' && !t.reissued_to_ticket_id
+      ).length,
+    };
+  }, [orders, tickets]);
+
+  // Dispute items: cancelled tickets (excluding Path B old) + rejected orders + cancelled orders
+  const disputeItems = useMemo(() => {
+    const items = [];
+
+    // Real cancellations (NOT Path B reissues — those are tracked via ticket_transfers)
+    tickets
+      .filter((t) => t.status === 'cancelled' && !t.reissued_to_ticket_id)
+      .forEach((t) => {
+        items.push({
+          id: 'tc-' + t.id,
+          type: 'ticket_cancelled',
+          date: t.cancelled_at,
+          ticket_code: t.ticket_code,
+          attendee_name: t.attendee_name,
+          tier_code: t.tier_code,
+          amount: Number(t.price) || 0,
+          reason: t.cancellation_reason,
+          actor: t.cancelled_by,
+          ticket_id: t.id,
+        });
+      });
+
+    // Rejected orders (admin rejected at verification stage — never had tickets)
+    orders
+      .filter((o) => o.status === 'rejected')
+      .forEach((o) => {
+        items.push({
+          id: 'or-' + o.id,
+          type: 'order_rejected',
+          date: o.rejected_at,
+          order_ref: '#' + o.id.slice(0, 8).toUpperCase(),
+          buyer_name: o.buyer_name,
+          ticket_type_name: o.ticket_type_name,
+          amount: Number(o.amount) || 0,
+          reason: o.rejection_reason,
+          actor: null,
+          order_id: o.id,
+        });
+      });
+
+    return items.sort((a, b) => {
+      const ad = a.date ? new Date(a.date).getTime() : 0;
+      const bd = b.date ? new Date(b.date).getTime() : 0;
+      return bd - ad;
+    });
+  }, [tickets, orders]);
 
   const selectedTicket = useMemo(
     () => tickets.find((t) => t.id === ticketSelectedId) || null,
@@ -2039,6 +2065,7 @@ function Dashboard({ session, adminRecord }) {
           seat_label: oldTicket.seat_label,
           group_name: oldTicket.group_name,
           group_category: oldTicket.group_category,
+          price: oldTicket.price || 0,
           status: 'issued',
           is_walk_in: oldTicket.is_walk_in,
           issued_by: session.user.email,
@@ -2077,18 +2104,30 @@ function Dashboard({ session, adminRecord }) {
     fetchTickets();
   }, [tickets, session, showToast, fetchTickets]);
 
+  // Invalidate a ticket (admin-side cleanup — test data, fraud, errors).
+  // Does NOT cascade to order status — orders stay clean. Finance auto-corrects
+  // since gross income is computed from active tickets only.
   const handleCancelTicket = useCallback(async (ticketId, reason) => {
     const res = await supabase.from('tickets').update({
       status: 'cancelled',
       cancelled_at: new Date().toISOString(),
       cancelled_by: session.user.email,
-      cancellation_reason: reason || 'Admin cancellation',
+      cancellation_reason: reason || 'Admin invalidation',
     }).eq('id', ticketId);
     if (res.error) {
-      showToast('Cancel failed: ' + res.error.message, 'warning');
+      showToast('Invalidate failed: ' + res.error.message, 'warning');
       return;
     }
-    showToast('Ticket cancelled');
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'ticket_invalidated',
+      resource_type: 'ticket',
+      resource_id: ticketId,
+      details: { reason: reason || null },
+    });
+
+    showToast('Ticket invalidated');
     fetchTickets();
   }, [session, showToast, fetchTickets]);
 
@@ -2097,9 +2136,9 @@ function Dashboard({ session, adminRecord }) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
       // Section switching shortcuts (works anywhere)
-      if ((e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') && !e.metaKey && !e.ctrlKey) {
+      if ((e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5' || e.key === '6') && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
-        const sections = ['orders', 'registrations', 'ban-revoke', 'tickets', 'finance'];
+        const sections = ['orders', 'registrations', 'ban-revoke', 'tickets', 'disputes', 'finance'];
         setSection(sections[parseInt(e.key, 10) - 1]);
         return;
       }
@@ -2197,7 +2236,7 @@ function Dashboard({ session, adminRecord }) {
             background: section === 'orders' ? 'rgba(255, 27, 107, 0.3)' : 'rgba(255, 255, 255, 0.06)',
             padding: '1px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
           }}>
-            {orders.length}
+            {activeCounts.activeOrders}
           </span>
         </button>
         <button onClick={() => setSection('registrations')} style={sectionBtnStyle(section === 'registrations')}>
@@ -2227,7 +2266,17 @@ function Dashboard({ session, adminRecord }) {
             background: section === 'tickets' ? 'rgba(255, 27, 107, 0.3)' : 'rgba(255, 255, 255, 0.06)',
             padding: '1px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
           }}>
-            {tickets.length}
+            {activeCounts.activeTickets}
+          </span>
+        </button>
+        <button onClick={() => setSection('disputes')} style={sectionBtnStyle(section === 'disputes')}>
+          <Icon name="alert" size={14} />
+          <span>Disputes</span>
+          <span className="font-mono" style={{
+            background: section === 'disputes' ? 'rgba(255, 27, 107, 0.3)' : 'rgba(255, 255, 255, 0.06)',
+            padding: '1px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+          }}>
+            {disputeItems.length}
           </span>
         </button>
         <button onClick={() => setSection('finance')} style={sectionBtnStyle(section === 'finance')}>
@@ -2403,8 +2452,20 @@ function Dashboard({ session, adminRecord }) {
         }}
         onTransfer={(ticket) => setShowTransferModal(ticket)}
         onCancel={(ticket) => {
-          const reason = window.prompt('Reason for cancellation?');
+          const reason = window.prompt('Reason for invalidating this ticket?');
           if (reason) handleCancelTicket(ticket.id, reason);
+        }}
+      />
+      ) : section === 'disputes' ? (
+      <DisputeHistoryView
+        items={disputeItems}
+        onOpenOrder={(orderId) => {
+          setSection('orders');
+          setSelectedId(orderId);
+        }}
+        onOpenTicket={(ticketId) => {
+          setSection('tickets');
+          setTicketSelectedId(ticketId);
         }}
       />
       ) : (
@@ -2423,6 +2484,7 @@ function Dashboard({ session, adminRecord }) {
         orders={orders}
         registrations={registrations}
         applications={applications}
+        tickets={tickets}
         onAddExpense={() => { setEditingExpense(null); setShowExpenseModal(true); }}
         onEditExpense={(e) => { setEditingExpense(e); setShowExpenseModal(true); }}
         onDeleteExpense={(id) => {
@@ -4316,7 +4378,7 @@ function FinanceView({
   financeLoading, budget, expenses, filteredExpenses,
   expenseCategoryFilter, setExpenseCategoryFilter,
   grossIncome, totalExpenses, totalBudget, netProfit,
-  expensesByCategory, orders, registrations, applications,
+  expensesByCategory, orders, registrations, applications, tickets,
   onAddExpense, onEditExpense, onDeleteExpense, onExportCSV,
 }) {
   if (financeLoading) {
@@ -4492,6 +4554,7 @@ function FinanceView({
           orders={orders}
           registrations={registrations}
           applications={applications}
+          tickets={tickets}
           grossIncome={grossIncome}
           totalExpenses={totalExpenses}
           totalBudget={totalBudget}
@@ -4738,7 +4801,7 @@ const tableCellStyle = {
 // ============================================================
 // INSIGHTS PANEL — calculated smart insights
 // ============================================================
-function InsightsPanel({ orders, registrations, applications, grossIncome, totalExpenses, totalBudget, netProfit }) {
+function InsightsPanel({ orders, registrations, applications, tickets, grossIncome, totalExpenses, totalBudget, netProfit }) {
   const insights = useMemo(() => {
     const out = [];
     const EVENT_DATE = new Date('2026-08-22T13:00:00+08:00');
@@ -4757,22 +4820,23 @@ function InsightsPanel({ orders, registrations, applications, grossIncome, total
         : 'Plenty of runway. Focus on early ticket drops and partnership outreach.',
     });
 
-    // Confirmed orders revenue split
-    const confirmedOrders = orders.filter((o) => o.status === 'confirmed');
-    if (confirmedOrders.length > 0) {
+    // Top revenue source (computed from active tickets, not order totals — consistent with gross income)
+    const activeTickets = tickets.filter((t) => t.status !== 'cancelled' && !t.reissued_to_ticket_id);
+    if (activeTickets.length > 0) {
       const byType = {};
-      confirmedOrders.forEach((o) => {
-        const k = o.ticket_type_name || 'Unknown';
-        byType[k] = (byType[k] || 0) + Number(o.total || 0);
+      activeTickets.forEach((t) => {
+        const k = t.ticket_type_name || 'Unknown';
+        byType[k] = (byType[k] || 0) + Number(t.price || 0);
       });
       const top = Object.entries(byType).sort((a, b) => b[1] - a[1])[0];
       if (top) {
         const pct = grossIncome > 0 ? Math.round((top[1] / grossIncome) * 100) : 0;
+        const topCount = activeTickets.filter((t) => (t.ticket_type_name || 'Unknown') === top[0]).length;
         out.push({
           tone: 'info',
           icon: 'ticket',
           title: 'Top revenue source: ' + top[0],
-          body: peso(top[1]) + ' (' + pct + '% of gross income) from ' + confirmedOrders.filter((o) => o.ticket_type_name === top[0]).length + ' orders.',
+          body: peso(top[1]) + ' (' + pct + '% of gross income) from ' + topCount + ' tickets.',
         });
       }
     }
@@ -4863,7 +4927,7 @@ function InsightsPanel({ orders, registrations, applications, grossIncome, total
     }
 
     return out;
-  }, [orders, registrations, applications, grossIncome, totalExpenses, totalBudget, netProfit]);
+  }, [orders, registrations, applications, tickets, grossIncome, totalExpenses, totalBudget, netProfit]);
 
   return (
     <div style={{
@@ -5762,7 +5826,7 @@ function TicketsView({
   const statusTabs = [
     { key: 'issued', label: 'Issued', count: ticketCounts.issued },
     { key: 'used', label: 'Used', count: ticketCounts.used },
-    { key: 'cancelled', label: 'Cancelled', count: ticketCounts.cancelled },
+    { key: 'cancelled', label: 'Invalidated', count: ticketCounts.cancelled },
     { key: 'all', label: 'All', count: ticketCounts.all },
   ];
 
@@ -6138,7 +6202,7 @@ function TicketDetailPanel({ ticket: t, onClose, onDownloadPDF, onTransfer, onCa
         )}
 
         {t.status === 'cancelled' && (
-          <Section title="Cancelled">
+          <Section title="Invalidated">
             <div style={{ fontSize: 12, color: '#FFA0A0' }}>
               {formatDT(t.cancelled_at)}
               {t.cancelled_by && <div>by {t.cancelled_by}</div>}
@@ -6187,7 +6251,7 @@ function TicketDetailPanel({ ticket: t, onClose, onDownloadPDF, onTransfer, onCa
                     fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
                     fontFamily: 'inherit',
                   }}>
-                  CANCEL TICKET
+                  INVALIDATE TICKET
                 </button>
               </React.Fragment>
             )}
@@ -6349,6 +6413,201 @@ function TicketTransferModal({ ticket, onClose, onSubmit }) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ============================================================
+// DISPUTE HISTORY VIEW — cancelled tickets + rejected orders
+// ============================================================
+const DISPUTE_TYPE_META = {
+  ticket_cancelled: {
+    label: 'Ticket Invalidated',
+    color: '#FF6B7F',
+    bg: 'rgba(255, 23, 68, 0.10)',
+    icon: 'x',
+  },
+  order_rejected: {
+    label: 'Order Rejected',
+    color: '#FF9F1A',
+    bg: 'rgba(255, 159, 26, 0.10)',
+    icon: 'alert',
+  },
+};
+
+function DisputeHistoryView({ items, onOpenOrder, onOpenTicket }) {
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((it) => {
+      if (typeFilter !== 'all' && it.type !== typeFilter) return false;
+      if (q) {
+        const hay = ((it.attendee_name || '') + ' ' + (it.buyer_name || '') + ' ' +
+                     (it.ticket_code || '') + ' ' + (it.order_ref || '') + ' ' +
+                     (it.reason || '')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [items, typeFilter, search]);
+
+  const stats = useMemo(() => {
+    return {
+      all: items.length,
+      ticketCancelled: items.filter((i) => i.type === 'ticket_cancelled').length,
+      orderRejected: items.filter((i) => i.type === 'order_rejected').length,
+      totalImpact: items.reduce((s, i) => s + (i.amount || 0), 0),
+    };
+  }, [items]);
+
+  return (
+    <div style={{ padding: '20px 32px 40px' }}>
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.02)', backdropFilter: 'blur(10px)',
+        borderRadius: 18, border: '1px solid var(--border)', overflow: 'hidden',
+      }}>
+        {/* Stat row */}
+        <div style={{
+          padding: '14px 18px', borderBottom: '1px solid var(--border)',
+          display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
+        }}>
+          <TicketStat label="Total Disputes" value={stats.all} />
+          <TicketStat label="Tickets Invalidated" value={stats.ticketCancelled} color="#FF6B7F" />
+          <TicketStat label="Orders Rejected" value={stats.orderRejected} color="#FF9F1A" />
+          <TicketStat label="Total Impact" value={'₱' + Math.round(stats.totalImpact)} color="#FF1B6B" />
+        </div>
+
+        {/* Filter row */}
+        <div style={{
+          padding: '12px 18px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+        }}>
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'ticket_cancelled', label: 'Tickets', color: '#FF6B7F' },
+            { key: 'order_rejected', label: 'Rejected', color: '#FF9F1A' },
+          ].map((f) => {
+            const active = typeFilter === f.key;
+            const c = f.color || '#FFFFFF';
+            return (
+              <button key={f.key} onClick={() => setTypeFilter(f.key)}
+                style={{
+                  padding: '6px 12px', borderRadius: 999,
+                  background: active ? c + '22' : 'rgba(255,255,255,0.04)',
+                  border: '1px solid ' + (active ? c + '60' : 'rgba(255,255,255,0.08)'),
+                  color: active ? c : 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}>
+                {f.label}
+              </button>
+            );
+          })}
+          <div style={{ flex: 1 }} />
+          <div style={{ position: 'relative', flex: '0 1 240px' }}>
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-soft)' }}>
+              <Icon name="search" size={14} />
+            </span>
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, code, reason..."
+              style={{
+                width: '100%', padding: '8px 12px 8px 34px', borderRadius: 10,
+                fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit',
+              }} />
+          </div>
+        </div>
+
+        {/* List */}
+        {filtered.length === 0 ? (
+          <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
+              {items.length === 0 ? 'Nothing in dispute history yet' : 'No items match your filters'}
+            </div>
+            <div style={{ fontSize: 12 }}>
+              {items.length === 0
+                ? 'Cancelled tickets and rejected orders will appear here for audit.'
+                : 'Adjust filters or clear search.'}
+            </div>
+          </div>
+        ) : (
+          <div style={{ maxHeight: 'calc(100vh - 360px)', overflow: 'auto' }}>
+            {filtered.map((it) => (
+              <DisputeRow key={it.id} item={it}
+                onOpen={() => {
+                  if (it.order_id) onOpenOrder(it.order_id);
+                  else if (it.ticket_id) onOpenTicket(it.ticket_id);
+                }} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DisputeRow({ item: it, onOpen }) {
+  const meta = DISPUTE_TYPE_META[it.type] || { label: it.type, color: '#FFFFFF', bg: 'rgba(255,255,255,0.05)', icon: 'alert' };
+  return (
+    <div onClick={onOpen}
+      style={{
+        padding: '14px 18px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        cursor: 'pointer',
+        display: 'grid',
+        gridTemplateColumns: '120px 1fr auto',
+        gap: 14, alignItems: 'center',
+        transition: 'background 0.15s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+      <div>
+        <span style={{
+          padding: '3px 8px', borderRadius: 4,
+          background: meta.bg,
+          border: '1px solid ' + meta.color + '40',
+          color: meta.color, fontSize: 10, fontWeight: 700,
+          letterSpacing: 0.5, whiteSpace: 'nowrap',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}>
+          <Icon name={meta.icon} size={10} /> {meta.label}
+        </span>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: 'var(--text)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          marginBottom: 3,
+        }}>
+          {it.ticket_code || it.order_ref}
+          <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 500 }}>
+            · {it.attendee_name || it.buyer_name || '—'}
+          </span>
+        </div>
+        <div style={{
+          fontSize: 11, color: 'var(--text-soft)',
+          display: 'flex', gap: 8, flexWrap: 'wrap',
+        }}>
+          <span>{formatDT(it.date)}</span>
+          {it.reason && (
+            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              · {it.reason.length > 60 ? it.reason.slice(0, 60) + '…' : it.reason}
+            </span>
+          )}
+          {it.actor && <span>· by {it.actor.split('@')[0]}</span>}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div className="font-mono" style={{
+          fontSize: 14, fontWeight: 700, color: meta.color,
+        }}>
+          ₱{Math.round(it.amount || 0)}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-soft)', marginTop: 2 }}>
+          {it.type === 'ticket_cancelled' ? 'ticket value' : 'order value'}
+        </div>
+      </div>
     </div>
   );
 }
