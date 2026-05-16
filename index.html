@@ -7,6 +7,9 @@
 <link rel="icon" type="image/png" href="/kph-favicon.png">
 <link rel="apple-touch-icon" href="/kph-favicon.png">
 
+<!-- Vercel Web Analytics — auto-served by Vercel, no install required -->
+<script defer src="/_vercel/insights/script.js"></script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -282,10 +285,16 @@
     box-shadow: 0 0 12px rgba(255, 27, 107, 0.5);
   }
   .seat-taken {
-    background: rgba(255, 255, 255, 0.02);
-    border-color: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.15);
-    cursor: not-allowed;
+    /* Intentionally identical to available — privacy: buyers should not
+       be able to count taken seats from the map. The click guard in JS
+       prevents selecting them; tap shows a "Seat unavailable" toast. */
+    cursor: default;
+  }
+  .seat-taken:hover {
+    /* Override the .seat:hover effect so taken seats don't look interactive. */
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: none;
   }
 
   .checkbox {
@@ -971,7 +980,7 @@ function HomeHero({ event, onBuyTickets }) {
             fontSize: 11, letterSpacing: 2.5, color: 'var(--text-soft)',
             fontWeight: 600,
           }}>
-            FROM ₱250 · LIMITED SEATS
+            FROM ₱230 · LIMITED SEATS
           </div>
         </div>
       </div>
@@ -3232,7 +3241,7 @@ function StickyMobileCTA({ onBuyTickets }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         }}
       >
-        GET TICKETS — FROM ₱250 →
+        GET TICKETS — FROM ₱230 →
       </button>
     </div>
   );
@@ -3383,7 +3392,7 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
         rules={[
           'You need at least 10 members on your fanchant team.',
           'One person, one group, one category. If you join Fanchant Battle, you can\'t also join Open Stage, Battle of the Entertainments, or Fanbooth Battle.',
-          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱250) as your entry ticket to get in.',
+          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱230) as your entry ticket to get in.',
           'Every member you signed up has to be there on event day. No swap-outs.',
           'Pick ONE song. Do the fanchant for that exact song.',
           'Bring lightsticks, banners, photocards, and other fan stuff. Your props should match the idol group you picked.',
@@ -3402,7 +3411,7 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
           'You need 3 members to run your booth.',
           'Only these 3 people can work inside the booth. No extras.',
           'One person, one group, one category. If you join Fanbooth Battle, you can\'t also join Open Stage, Battle of the Entertainments, or Fanchant Battle.',
-          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱250) as your entry ticket to get in.',
+          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱230) as your entry ticket to get in.',
           'Each booth represents one fandom. Your Entertainment can pick a different fandom for Fanchant Battle if you want.',
           'Have your booth set up before doors open. Your decorations, layout, and how you treat visitors all count toward the score.',
           'Keep your booth staffed and looking good all day.',
@@ -7295,8 +7304,35 @@ function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees,
   const assigned = vipAttendees.filter(a => a.seatId).length;
   const selectedSeatIds = new Set(vipAttendees.map(a => a.seatId).filter(Boolean));
 
+  // Toast for "seat unavailable" — buyers tapping a taken seat get a friendly
+  // hint without revealing how many seats are taken (we don't visually mark
+  // taken seats — see CSS comment on .seat-taken).
+  const [unavailableToast, setUnavailableToast] = useState(false);
+  const toastTimerRef = useRef(null);
+
+  // Ref + effect: center the seat-grid horizontal scroll on mount so the
+  // aisle between left and right blocks aligns with the stage center.
+  // Without this, the grid starts scrolled to the left edge and buyers
+  // see only the left half of the auditorium.
+  const seatGridScrollRef = useRef(null);
+  useEffect(() => {
+    const el = seatGridScrollRef.current;
+    if (!el) return;
+    // Wait one paint so layout has measured the inner content width.
+    const t = setTimeout(() => {
+      const overflow = el.scrollWidth - el.clientWidth;
+      if (overflow > 0) el.scrollLeft = overflow / 2;
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
   const toggleSeat = (seat) => {
-    if (takenSeatIds.has(seat.id)) return;
+    if (takenSeatIds.has(seat.id)) {
+      setUnavailableToast(true);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setUnavailableToast(false), 2000);
+      return;
+    }
     // Find next unassigned VIP attendee or the one currently holding this seat
     const idxWithThisSeat = attendees.findIndex(a => a.seatId === seat.id);
     if (idxWithThisSeat >= 0) {
@@ -7342,6 +7378,21 @@ function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees,
         </span>
       </div>
 
+      {/* "Seat unavailable" toast — shown when buyer taps a taken seat.
+          Deliberately worded as "unavailable" rather than "taken" to avoid
+          confirming attendance counts. */}
+      {unavailableToast && (
+        <div style={{
+          padding: '10px 14px', marginBottom: 12,
+          background: 'rgba(255, 179, 0, 0.12)',
+          border: '1px solid rgba(255, 179, 0, 0.35)',
+          borderRadius: 8, color: '#FFD380',
+          fontSize: 13, fontWeight: 600, textAlign: 'center',
+        }}>
+          Seat unavailable — please pick another.
+        </div>
+      )}
+
       {/* Stage indicator */}
       <div style={{
         textAlign: 'center', padding: '10px 0',
@@ -7355,7 +7406,7 @@ function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees,
       {/* Seat grid — split into two blocks with an aisle gap.
           Left block: seats 1-14. Right block: seats 15-28.
           Airplane-style numbering — row letter continues across both blocks. */}
-      <div style={{
+      <div ref={seatGridScrollRef} style={{
         overflowX: 'auto', padding: '4px 0 12px', WebkitOverflowScrolling: 'touch'
       }}>
         <div style={{ display: 'inline-block', minWidth: '100%' }}>
@@ -7457,7 +7508,6 @@ function Legend() {
     }}>
       <LegendDot color="rgba(255, 255, 255, 0.08)" label="Available" />
       <LegendDot gradient label="Selected" />
-      <LegendDot color="rgba(255, 255, 255, 0.02)" label="Taken" border="rgba(255, 255, 255, 0.05)" />
     </div>
   );
 }

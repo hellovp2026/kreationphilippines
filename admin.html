@@ -7141,8 +7141,8 @@ const PERFORMER_TICKETS_TEMPLATE_VARS = [
 // a QR for the buyer to photograph from the cashier's screen.
 //
 // WALK-IN PRICING (different from advance):
-//   VIP walk-in:     ₱320 (vs ₱300 advance)
-//   Regular walk-in: ₱280 (vs ₱250 advance)
+//   VIP walk-in:     \u20B1300 (vs \u20B1280 advance)
+//   Regular walk-in: \u20B1250 (vs \u20B1230 advance)
 //
 // TICKET CODES:
 //   VIP walk-in:     KP-V-W0042 (W prefix, sequential)
@@ -7155,8 +7155,8 @@ const PERFORMER_TICKETS_TEMPLATE_VARS = [
 //   home → sale (step 0: tier) → (step 1: VIP seat) → (step 2: buyer+pay) → (step 3: QR + admit)
 // ============================================================
 
-const WALK_IN_PRICE_VIP = 320;
-const WALK_IN_PRICE_REG = 280;
+const WALK_IN_PRICE_VIP = 300;
+const WALK_IN_PRICE_REG = 250;
 
 function WalkinView({
   tierInventory, seats, seatStateMap, currentUserEmail,
@@ -8190,8 +8190,8 @@ function HelpQuickRef() {
 
       <h3 style={helpH3}>Prices on event day</h3>
       <ul>
-        <li style={helpLi}>{'\u2022 VIP walk-in: \u20B1320 (advance was \u20B1300)'}</li>
-        <li style={helpLi}>{'\u2022 Regular walk-in: \u20B1280 (advance was \u20B1250)'}</li>
+        <li style={helpLi}>{'\u2022 VIP walk-in: \u20B1300 (advance was \u20B1280)'}</li>
+        <li style={helpLi}>{'\u2022 Regular walk-in: \u20B1250 (advance was \u20B1230)'}</li>
         <li style={helpLi}>{'\u2022 No participant walk-ins. Performers must have pre-registered.'}</li>
       </ul>
 
@@ -8228,7 +8228,7 @@ function HelpCashier() {
 
       <h3 style={helpH3}>For each sale (target: 45 seconds)</h3>
       <ul>
-        <li style={helpLi}>{'1. Ask: "VIP or Regular?" — VIP \u20B1320 (assigned seat), Regular \u20B1280 (free seating)'}</li>
+        <li style={helpLi}>{'1. Ask: "VIP or Regular?" \u2014 VIP \u20B1300 (assigned seat), Regular \u20B1250 (free seating)'}</li>
         <li style={helpLi}>{'2. Tap + NEW WALK-IN SALE'}</li>
         <li style={helpLi}>{'3. Pick the tier. If VIP sold out, the tile is grayed out — offer Regular instead.'}</li>
         <li style={helpLi}>{'4. For VIP: let buyer point to the seat they want on the seat map'}</li>
