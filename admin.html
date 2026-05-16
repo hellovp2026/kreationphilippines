@@ -480,8 +480,8 @@ function buildRegistrationContext(reg, settings) {
                'Deadline: ' + ticketSendDate;
     stepOne = 'Send proof of payment by replying to this email.';
   } else {
-    feeBlock = 'PARTICIPANT TICKETS\nMembers of Fanchant/Fanbooth do not pay the \u20B1300 participant fee.\nEach member needs a Regular audience ticket (\u20B1250) to enter the venue.\nTickets: https://kreationphilippines.vercel.app';
-    stepOne = 'Each member buys a \u20B1250 audience ticket via the site.';
+    feeBlock = 'PARTICIPANT TICKETS\nMembers of Fanchant/Fanbooth do not pay the \u20B1300 participant fee.\nEach member needs a Regular audience ticket (\u20B1230) to enter the venue.\nTickets: https://kreationphilippines.vercel.app';
+    stepOne = 'Each member buys a \u20B1230 audience ticket via the site.';
   }
 
   return {
@@ -3486,8 +3486,8 @@ function Dashboard({ session, adminRecord }) {
       {/* Tier inventory — sold / remaining / revenue per audience tier.
           Sits at the top of the Orders tab as the at-a-glance dashboard. */}
       <div style={{ padding: '28px 32px 0', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <TierInventoryCard tier="V" label="VIP · ₱300" accent="#FF1B6B" data={tierInventory.V} />
-        <TierInventoryCard tier="R" label="REGULAR · ₱250" accent="#00E5FF" data={tierInventory.R} />
+        <TierInventoryCard tier="V" label="VIP · ₱280" accent="#FF1B6B" data={tierInventory.V} />
+        <TierInventoryCard tier="R" label="REGULAR · ₱230" accent="#00E5FF" data={tierInventory.R} />
       </div>
 
       <div style={{ padding: '14px 32px 0', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -6159,8 +6159,8 @@ function FinanceView({
           since Finance is the place where per-tier revenue matters most. */}
       {tierInventory && (
         <div style={{ padding: '20px 32px 0', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          <TierInventoryCard tier="V" label="VIP · ₱300" accent="#FF1B6B" data={tierInventory.V} />
-          <TierInventoryCard tier="R" label="REGULAR · ₱250" accent="#00E5FF" data={tierInventory.R} />
+          <TierInventoryCard tier="V" label="VIP · ₱280" accent="#FF1B6B" data={tierInventory.V} />
+          <TierInventoryCard tier="R" label="REGULAR · ₱230" accent="#00E5FF" data={tierInventory.R} />
           <TierInventoryCard tier="P" label="PARTICIPANT · ₱300" accent="#C724FF" data={tierInventory.P} />
         </div>
       )}
