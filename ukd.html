@@ -18,10 +18,11 @@
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-is@18/umd/react-is.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
 <style>
   :root {
@@ -590,7 +591,17 @@
 
 <script type="text/babel" data-presets="env,react">
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
-const { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = window.Recharts;
+
+// Recharts loaded via UMD — destructure defensively so a failed CDN load
+// doesn't crash the whole app. If charts are missing, the rest still renders.
+const RC = window.Recharts || {};
+const AreaChart = RC.AreaChart, Area = RC.Area;
+const BarChart = RC.BarChart, Bar = RC.Bar;
+const XAxis = RC.XAxis, YAxis = RC.YAxis;
+const Tooltip = RC.Tooltip, ResponsiveContainer = RC.ResponsiveContainer;
+const CartesianGrid = RC.CartesianGrid;
+const RECHARTS_LOADED = !!(RC.AreaChart && RC.BarChart);
+if (!RECHARTS_LOADED) console.warn('[UKD] Recharts did not load \u2014 charts will be hidden.');
 
 const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
@@ -743,7 +754,7 @@ function LoginScreen({ onSignedIn }) {
           <input className="field-input" type="password" autoComplete="current-password"
                  value={password} onChange={(e) => setPassword(e.target.value)}
                  onKeyDown={(e) => e.key === 'Enter' && submit()}
-                 placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" />
+                 placeholder={'\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'} />
         </div>
 
         {error && <div className="error-pill" style={{ marginBottom: 14 }}>{error}</div>}
@@ -1045,21 +1056,25 @@ function Dashboard({ session, onSignOut }) {
         </div>
       </div>
 
-      <div className="chart-card">
-        <div className="chart-card-head">
-          <div className="chart-title">Sales Curve</div>
-          <div className="chart-sub">cumulative</div>
+      {RECHARTS_LOADED && (
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-title">Sales Curve</div>
+            <div className="chart-sub">cumulative</div>
+          </div>
+          <SalesAreaChart data={salesOverTime} />
         </div>
-        <SalesAreaChart data={salesOverTime} />
-      </div>
+      )}
 
-      <div className="chart-card">
-        <div className="chart-card-head">
-          <div className="chart-title">Hourly Pulse</div>
-          <div className="chart-sub">when fans buy</div>
+      {RECHARTS_LOADED && (
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-title">Hourly Pulse</div>
+            <div className="chart-sub">when fans buy</div>
+          </div>
+          <HourlyBarChart data={hourlyData} />
         </div>
-        <HourlyBarChart data={hourlyData} />
-      </div>
+      )}
 
       <div className="privacy-strip">
         Buyer contact info is shared with UKD for after-party fulfillment per buyer consent. Handle responsibly under RA 10173 (Data Privacy Act).
