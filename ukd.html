@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#08020F">
+<title>DKC 2026 — After Party Portal</title>
+
+<link rel="icon" type="image/png" href="/ukd-favicon.png">
+<link rel="apple-touch-icon" href="/ukd-favicon.png">
+
+<!-- Vercel Analytics -->
+<script defer src="/_vercel/insights/script.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+
+<style>
+  :root {
+    --bg: #050010;
+    --bg-deep: #03000A;
+    --ink: #FFFFFF;
+    --ink-soft: #E0D0F0;
+    --ink-muted: #9080A8;
+    --ink-faint: #5A4870;
+
+    --neon-pink: #FF1B6B;
+    --neon-magenta: #C724FF;
+    --neon-blue: #00B8FF;
+    --neon-violet: #7A2EFF;
+    --neon-cyan: #00E5FF;
+    --neon-acid: #B3FF00;
+
+    --good: #00E08A;
+    --warn: #FFB300;
+    --bad: #FF3D6B;
+
+    --gradient-rave: linear-gradient(135deg, #FF1B6B 0%, #C724FF 50%, #00B8FF 100%);
+
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    --radius: 18px;
+    --radius-lg: 24px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Manrope', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(255, 27, 107, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 40% at 80% 10%, rgba(199, 36, 255, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 50% 100%, rgba(0, 184, 255, 0.08) 0%, transparent 60%),
+      var(--bg-deep);
+    background-attachment: fixed;
+  }
+
+  /* Slow drifting aurora */
+  .aurora { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.6; }
+  .aurora::before, .aurora::after {
+    content: ''; position: absolute; border-radius: 50%;
+    filter: blur(80px); will-change: transform;
+  }
+  .aurora::before {
+    width: 600px; height: 600px; top: -200px; left: -100px;
+    background: radial-gradient(circle, rgba(255,27,107,0.35) 0%, transparent 70%);
+    animation: aurora-a 24s ease-in-out infinite;
+  }
+  .aurora::after {
+    width: 700px; height: 700px; bottom: -250px; right: -150px;
+    background: radial-gradient(circle, rgba(0,184,255,0.30) 0%, transparent 70%);
+    animation: aurora-b 30s ease-in-out infinite;
+  }
+  @keyframes aurora-a {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(80px, 60px) scale(1.15); }
+  }
+  @keyframes aurora-b {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(-100px, -80px) scale(1.1); }
+  }
+
+  /* Grain texture overlay */
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    opacity: 0.08; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  /* Floating particles */
+  .particles { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+  .particle {
+    position: absolute; bottom: -10px;
+    width: 4px; height: 4px; border-radius: 50%;
+    opacity: 0; animation: drift linear infinite; will-change: transform;
+  }
+  @keyframes drift {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    10%  { opacity: 0.8; }
+    100% { transform: translateY(-110vh) translateX(var(--drift-x, 40px)); opacity: 0; }
+  }
+
+  .app { position: relative; z-index: 10; min-height: 100vh; }
+
+  .font-display { font-family: 'Unbounded', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* LOGIN */
+  .login-wrap {
+    min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 24px;
+  }
+  .login-card {
+    width: 100%; max-width: 420px; padding: 36px 28px;
+    background: rgba(15, 5, 30, 0.7);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    position: relative;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    animation: card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .login-card::before {
+    content: ''; position: absolute; inset: -1px;
+    border-radius: inherit; padding: 1.5px;
+    background: var(--gradient-rave);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0.5;
+    animation: border-hue 8s linear infinite;
+  }
+  @keyframes border-hue {
+    0%, 100% { filter: hue-rotate(0deg); }
+    50%      { filter: hue-rotate(60deg); }
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .login-logo-ring {
+    width: 96px; height: 96px;
+    margin: 0 auto 18px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-logo-ring::before {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--neon-pink), var(--neon-magenta), var(--neon-blue), var(--neon-pink));
+    animation: spin 4s linear infinite;
+    filter: blur(8px); opacity: 0.7;
+  }
+  .login-logo-ring img {
+    width: 96px; height: 96px; border-radius: 50%;
+    position: relative; z-index: 1;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .field-group { margin-bottom: 16px; }
+  .field-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--ink-muted);
+    margin-bottom: 8px; display: block;
+  }
+  .field-input {
+    width: 100%; background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px; color: var(--ink);
+    font-size: 15px; font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .field-input:focus {
+    outline: none; border-color: var(--neon-magenta);
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0 4px rgba(199, 36, 255, 0.15);
+  }
+  .field-input::placeholder { color: var(--ink-faint); }
+
+  .btn-rave {
+    width: 100%; background: var(--gradient-rave);
+    background-size: 200% 200%; color: white; border: none;
+    border-radius: var(--radius-sm); padding: 16px 20px;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700; font-size: 14px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.3s;
+    animation: gradient-shift 6s ease infinite;
+    box-shadow: 0 8px 30px rgba(255, 27, 107, 0.4);
+  }
+  .btn-rave:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(255, 27, 107, 0.55);
+  }
+  .btn-rave:active:not(:disabled) { transform: translateY(0); }
+  .btn-rave:disabled { opacity: 0.5; cursor: not-allowed; }
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.04); color: var(--ink-soft);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--neon-magenta); color: white;
+  }
+
+  .error-pill {
+    background: rgba(255, 61, 107, 0.12);
+    border: 1px solid rgba(255, 61, 107, 0.4);
+    color: #FFB0C5; border-radius: var(--radius-sm);
+    padding: 12px 14px; font-size: 13px; line-height: 1.5;
+  }
+
+  /* DASHBOARD */
+  .dash { padding: 18px 16px 80px; max-width: 1400px; margin: 0 auto; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 14px;
+    flex: 1; min-width: 200px;
+  }
+  .topbar-logo { position: relative; width: 48px; height: 48px; flex-shrink: 0; }
+  .topbar-logo::before {
+    content: ''; position: absolute; inset: -3px; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--neon-pink), var(--neon-magenta), var(--neon-blue), var(--neon-pink));
+    animation: spin 6s linear infinite;
+    filter: blur(4px); opacity: 0.8;
+  }
+  .topbar-logo img {
+    width: 48px; height: 48px; border-radius: 50%;
+    position: relative; z-index: 1;
+  }
+  .topbar-title {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700; font-size: 15px;
+    letter-spacing: -0.02em; line-height: 1.1;
+  }
+  .topbar-title .accent {
+    background: var(--gradient-rave);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .topbar-live {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--ink-muted);
+    margin-top: 4px;
+  }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 0 0 rgba(0, 224, 138, 0.7);
+    animation: ringpulse 2.2s ease-out infinite;
+  }
+  @keyframes ringpulse {
+    0%   { box-shadow: 0 0 0 0 rgba(0, 224, 138, 0.7); }
+    70%  { box-shadow: 0 0 0 14px rgba(0, 224, 138, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 224, 138, 0); }
+  }
+
+  /* HERO STAT */
+  .hero-stat {
+    position: relative;
+    background:
+      radial-gradient(ellipse 90% 100% at 50% 0%, rgba(199, 36, 255, 0.2) 0%, transparent 70%),
+      rgba(15, 5, 30, 0.5);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 32px 24px 28px; margin-bottom: 20px;
+    overflow: hidden;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    text-align: center;
+    animation: card-in 0.8s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hero-stat::before {
+    content: ''; position: absolute; inset: -1px;
+    border-radius: inherit; padding: 1.5px;
+    background: var(--gradient-rave);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0.7;
+    animation: border-hue 8s linear infinite;
+  }
+  .hero-stat::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: scan 4s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%, 100% { transform: translateX(-100%); opacity: 0; }
+    50%      { opacity: 1; }
+    100%     { transform: translateX(100%); opacity: 0; }
+  }
+  .hero-stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 3px; color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .hero-stat-number {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 900;
+    font-size: clamp(56px, 18vw, 120px);
+    line-height: 0.9; letter-spacing: -0.04em;
+    background: var(--gradient-rave);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    text-shadow: 0 0 60px rgba(199, 36, 255, 0.3);
+  }
+  .hero-stat-sub {
+    margin-top: 10px; font-size: 12px;
+    color: var(--ink-soft); letter-spacing: 0.5px;
+  }
+  .hero-stat-sub strong { color: var(--ink); font-weight: 700; }
+  .hero-stat.flash { animation: flash 0.6s ease-out; }
+  @keyframes flash {
+    0%   { box-shadow: 0 0 0 0 rgba(199, 36, 255, 0); }
+    30%  { box-shadow: 0 0 80px 10px rgba(199, 36, 255, 0.6); }
+    100% { box-shadow: 0 0 0 0 rgba(199, 36, 255, 0); }
+  }
+
+  /* STAT GRID */
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .stat-tile {
+    background: rgba(15, 5, 30, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px; text-align: left;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s;
+    position: relative; overflow: hidden;
+    animation: card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .stat-tile:nth-child(1) { animation-delay: 0.15s; }
+  .stat-tile:nth-child(2) { animation-delay: 0.25s; }
+  .stat-tile:nth-child(3) { animation-delay: 0.35s; }
+  .stat-tile:hover { transform: translateY(-3px); border-color: var(--border-strong); }
+  .stat-tile-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .stat-tile-value {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700; font-size: 22px;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .stat-tile.revenue { color: var(--neon-acid); }
+  .stat-tile.revenue:hover { box-shadow: 0 8px 30px rgba(179, 255, 0, 0.15); border-color: rgba(179, 255, 0, 0.3); }
+  .stat-tile.confirmed { color: var(--good); }
+  .stat-tile.confirmed:hover { box-shadow: 0 8px 30px rgba(0, 224, 138, 0.18); border-color: rgba(0, 224, 138, 0.3); }
+  .stat-tile.pending { color: var(--warn); }
+  .stat-tile.pending:hover { box-shadow: 0 8px 30px rgba(255, 179, 0, 0.18); border-color: rgba(255, 179, 0, 0.3); }
+
+  /* CHART CARDS */
+  .chart-card {
+    background: rgba(15, 5, 30, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 18px 14px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    animation: card-in 0.8s 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    position: relative; overflow: hidden;
+  }
+  .chart-card-head {
+    display: flex; align-items: baseline;
+    justify-content: space-between; margin-bottom: 16px;
+  }
+  .chart-title {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700; font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .chart-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--ink-muted);
+  }
+
+  /* SEARCH */
+  .search-wrap { position: relative; margin-bottom: 14px; }
+  .search-input {
+    width: 100%; background: rgba(15, 5, 30, 0.6);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 14px 16px 14px 44px;
+    color: var(--ink); font-size: 14px; font-family: inherit;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-input:focus {
+    outline: none; border-color: var(--neon-magenta);
+    box-shadow: 0 0 0 4px rgba(199, 36, 255, 0.15);
+  }
+  .search-icon {
+    position: absolute; left: 16px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-muted); font-size: 16px;
+  }
+
+  /* ATTENDEE CARDS */
+  .attendee-list { display: flex; flex-direction: column; gap: 10px; }
+  .attendee-card {
+    background: rgba(15, 5, 30, 0.55);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s;
+    position: relative; overflow: hidden;
+    animation: row-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .attendee-card.new { animation: row-flash 1.5s ease-out; }
+  @keyframes row-flash {
+    0%   { background: rgba(199, 36, 255, 0.25); border-color: var(--neon-magenta); box-shadow: 0 0 40px rgba(199, 36, 255, 0.6); }
+    100% { background: rgba(15, 5, 30, 0.55); }
+  }
+  @keyframes row-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .attendee-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 30px rgba(199, 36, 255, 0.15);
+  }
+  .attendee-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .attendee-name {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700; font-size: 15px; margin-bottom: 4px;
+  }
+  .attendee-buyer {
+    font-size: 12px; color: var(--ink-muted); margin-bottom: 10px;
+  }
+  .attendee-buyer strong { color: var(--ink-soft); font-weight: 600; }
+  .attendee-contact {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-muted);
+  }
+  .attendee-contact span { display: inline-flex; align-items: center; gap: 6px; word-break: break-all; }
+
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .status-chip.confirmed { background: rgba(0, 224, 138, 0.12); color: var(--good); border: 1px solid rgba(0, 224, 138, 0.3); }
+  .status-chip.pending   { background: rgba(255, 179, 0, 0.12); color: var(--warn); border: 1px solid rgba(255, 179, 0, 0.3); }
+  .status-chip.rejected  { background: rgba(255, 61, 107, 0.12); color: var(--bad); border: 1px solid rgba(255, 61, 107, 0.3); }
+  .status-chip.other     { background: rgba(255, 255, 255, 0.06); color: var(--ink-muted); border: 1px solid var(--border); }
+
+  .receipt-btn {
+    background: rgba(0, 184, 255, 0.1);
+    border: 1px solid rgba(0, 184, 255, 0.35);
+    color: var(--neon-cyan);
+    padding: 6px 12px; border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .receipt-btn:hover {
+    background: rgba(0, 184, 255, 0.2);
+    box-shadow: 0 0 16px rgba(0, 184, 255, 0.4);
+  }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--ink-muted); font-size: 13px;
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 14px; opacity: 0.3; }
+
+  .privacy-strip {
+    font-size: 10px; color: var(--ink-faint); line-height: 1.6;
+    padding: 12px 14px; background: rgba(15, 5, 30, 0.4);
+    border: 1px dashed var(--border); border-radius: var(--radius-sm);
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+  }
+
+  /* Confetti */
+  .confetti-host { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
+  .confetti-piece {
+    position: absolute; width: 8px; height: 14px; top: -20px;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(105vh) rotate(720deg); opacity: 0.5; }
+  }
+
+  /* Loading shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius);
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Desktop */
+  @media (min-width: 768px) {
+    .dash { padding: 28px 28px 80px; }
+    .topbar-title { font-size: 18px; }
+    .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    .hero-stat { padding: 48px 32px 40px; }
+  }
+  @media (max-width: 380px) {
+    .stat-tile-value { font-size: 18px; }
+    .stat-tile { padding: 12px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+<div class="particles" id="particles"></div>
+<div id="root" class="app"></div>
+
+<script>
+// Spawn floating particles
+(function spawnParticles() {
+  const host = document.getElementById('particles');
+  if (!host) return;
+  const colors = ['#FF1B6B', '#C724FF', '#00B8FF', '#FFFFFF'];
+  const NUM = 24;
+  for (let i = 0; i < NUM; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const color = colors[i % colors.length];
+    const size = 2 + Math.random() * 4;
+    p.style.left = (Math.random() * 100) + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = color;
+    p.style.boxShadow = '0 0 ' + (8 + Math.random() * 8) + 'px ' + color;
+    p.style.setProperty('--drift-x', ((Math.random() - 0.5) * 200) + 'px');
+    p.style.animationDuration = (10 + Math.random() * 18) + 's';
+    p.style.animationDelay = (Math.random() * 20) + 's';
+    host.appendChild(p);
+  }
+})();
+</script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+const { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = window.Recharts;
+
+const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const peso = (n) => '\u20B1' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtDate = (iso) => {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  return d.toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+const fmtTimeAgo = (iso) => {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+};
+
+function fireConfetti() {
+  const host = document.createElement('div');
+  host.className = 'confetti-host';
+  document.body.appendChild(host);
+  const colors = ['#FF1B6B', '#C724FF', '#00B8FF', '#B3FF00', '#FFFFFF'];
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+    p.style.animationDelay = (Math.random() * 0.3) + 's';
+    p.style.borderRadius = Math.random() > 0.5 ? '2px' : '50%';
+    host.appendChild(p);
+  }
+  setTimeout(() => host.remove(), 4000);
+}
+
+function useCountUp(target, duration) {
+  const dur = duration || 900;
+  const [val, setVal] = useState(0);
+  const prevTarget = useRef(0);
+  useEffect(() => {
+    const start = prevTarget.current;
+    const end = Number(target) || 0;
+    if (start === end) { setVal(end); return; }
+    const t0 = performance.now();
+    let raf;
+    function tick(now) {
+      const t = Math.min((now - t0) / dur, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(Math.round(start + (end - start) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else prevTarget.current = end;
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, dur]);
+  return val;
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[UKD ErrorBoundary]', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="login-wrap">
+          <div className="login-card" style={{ textAlign: 'center' }}>
+            <div className="font-display" style={{ fontSize: 18, marginBottom: 10, color: '#FFB0C5' }}>Something broke</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginBottom: 20, wordBreak: 'break-word' }}>
+              {this.state.error.message || String(this.state.error)}
+            </div>
+            <button className="btn-rave" onClick={() => window.location.reload()}>Reload</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function LoginScreen({ onSignedIn }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async () => {
+    setError(null);
+    if (!email.trim() || !password) { setError('Email and password are required.'); return; }
+    setBusy(true);
+    try {
+      const { data, error: e1 } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (e1) throw e1;
+      const { data: allow, error: e2 } = await supabase
+        .from('ukd_allowlist').select('email')
+        .eq('email', email.trim().toLowerCase()).maybeSingle();
+      if (e2) throw e2;
+      if (!allow) {
+        await supabase.auth.signOut();
+        throw new Error('This account is not authorized. Contact Kreation Philippines.');
+      }
+      onSignedIn(data.session);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo-ring">
+          <img src="/ukd-logo-color.png" alt="UKD" />
+        </div>
+        <div className="font-display" style={{ textAlign: 'center', fontSize: 18, marginBottom: 6 }}>
+          DKC 2026
+        </div>
+        <div className="font-display" style={{ textAlign: 'center', fontSize: 22, marginBottom: 8 }}>
+          <span style={{
+            background: 'var(--gradient-rave)',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            color: 'transparent',
+          }}>After Party</span> Portal
+        </div>
+        <div style={{ textAlign: 'center', fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: 10, letterSpacing: 2, textTransform: 'uppercase',
+                      color: 'var(--ink-muted)', marginBottom: 28 }}>
+          UKD partner access
+        </div>
+
+        <div className="field-group">
+          <label className="field-label">Email</label>
+          <input className="field-input" type="email" autoComplete="email"
+                 value={email} onChange={(e) => setEmail(e.target.value)}
+                 onKeyDown={(e) => e.key === 'Enter' && submit()}
+                 placeholder="ultimatekpopdavao@gmail.com" />
+        </div>
+        <div className="field-group">
+          <label className="field-label">Password</label>
+          <input className="field-input" type="password" autoComplete="current-password"
+                 value={password} onChange={(e) => setPassword(e.target.value)}
+                 onKeyDown={(e) => e.key === 'Enter' && submit()}
+                 placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" />
+        </div>
+
+        {error && <div className="error-pill" style={{ marginBottom: 14 }}>{error}</div>}
+
+        <button className="btn-rave" onClick={submit} disabled={busy}>
+          {busy ? 'Signing in\u2026' : 'Enter the booth'}
+        </button>
+
+        <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--ink-faint)',
+                      marginTop: 22, lineHeight: 1.6 }}>
+          Invite-only access. Need a login? Email kreationph@gmail.com.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SalesAreaChart({ data }) {
+  return (
+    <div style={{ width: '100%', height: 200 }}>
+      <ResponsiveContainer>
+        <AreaChart data={data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
+          <defs>
+            <linearGradient id="raveGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#C724FF" stopOpacity={0.6} />
+              <stop offset="100%" stopColor="#C724FF" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="label" stroke="#7A6890" fontSize={10}
+                 tickLine={false} axisLine={false}
+                 style={{ fontFamily: 'JetBrains Mono, monospace' }} />
+          <YAxis stroke="#7A6890" fontSize={10}
+                 tickLine={false} axisLine={false}
+                 style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                 allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              background: 'rgba(15, 5, 30, 0.95)',
+              border: '1px solid rgba(199, 36, 255, 0.5)',
+              borderRadius: 10,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 11,
+              boxShadow: '0 8px 30px rgba(199, 36, 255, 0.3)',
+            }}
+            cursor={{ stroke: '#C724FF', strokeWidth: 1, strokeDasharray: '2 4' }}
+            labelStyle={{ color: '#E0D0F0' }}
+          />
+          <Area type="monotone" dataKey="value" stroke="#C724FF" strokeWidth={2}
+                fill="url(#raveGradient)" animationDuration={1200} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function HourlyBarChart({ data }) {
+  return (
+    <div style={{ width: '100%', height: 180 }}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
+          <defs>
+            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF1B6B" />
+              <stop offset="100%" stopColor="#C724FF" />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="label" stroke="#7A6890" fontSize={9}
+                 tickLine={false} axisLine={false} interval={2}
+                 style={{ fontFamily: 'JetBrains Mono, monospace' }} />
+          <YAxis stroke="#7A6890" fontSize={10}
+                 tickLine={false} axisLine={false}
+                 style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                 allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              background: 'rgba(15, 5, 30, 0.95)',
+              border: '1px solid rgba(255, 27, 107, 0.5)',
+              borderRadius: 10,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 11,
+            }}
+            cursor={{ fill: 'rgba(255, 27, 107, 0.08)' }}
+            labelStyle={{ color: '#E0D0F0' }}
+          />
+          <Bar dataKey="value" fill="url(#barGradient)" radius={[6, 6, 0, 0]} animationDuration={1000} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function Dashboard({ session, onSignOut }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [ravePrice, setRavePrice] = useState(450);
+  const [search, setSearch] = useState('');
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [receiptUrls, setReceiptUrls] = useState({});
+  const [flashHero, setFlashHero] = useState(false);
+  const [newRowIds, setNewRowIds] = useState(new Set());
+  const isFirstLoad = useRef(true);
+  const knownIds = useRef(new Set());
+
+  const fetchData = useCallback(async (isRealtimeUpdate) => {
+    try {
+      const [aoRes, attRes] = await Promise.all([
+        supabase.from('add_ons').select('id, name, price').ilike('name', '%rave%').maybeSingle(),
+        supabase.from('attendees').select(`
+          id, name, has_rave_party,
+          orders!inner ( id, order_number, buyer_name, buyer_email, buyer_phone,
+                         receipt_path, reference_number, status, created_at, total )
+        `).eq('has_rave_party', true).order('id', { ascending: false }),
+      ]);
+
+      if (aoRes.data && aoRes.data.price) setRavePrice(Number(aoRes.data.price));
+      if (attRes.error) throw attRes.error;
+
+      const fetchedRows = attRes.data || [];
+
+      if (!isFirstLoad.current && isRealtimeUpdate) {
+        const freshIds = new Set();
+        for (const r of fetchedRows) {
+          if (!knownIds.current.has(r.id)) freshIds.add(r.id);
+        }
+        if (freshIds.size > 0) {
+          setNewRowIds(freshIds);
+          setFlashHero(true);
+          fireConfetti();
+          setTimeout(() => setFlashHero(false), 700);
+          setTimeout(() => setNewRowIds(new Set()), 1800);
+        }
+      }
+      knownIds.current = new Set(fetchedRows.map(r => r.id));
+      isFirstLoad.current = false;
+
+      setRows(fetchedRows);
+      setLastUpdate(new Date());
+      setError(null);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(false); }, [fetchData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('ukd-portal-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendees' }, () => fetchData(true))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchData]);
+
+  const getReceiptUrl = useCallback(async (path) => {
+    if (!path) return null;
+    if (receiptUrls[path]) return receiptUrls[path];
+    try {
+      const { data, error } = await supabase.storage.from('receipts').createSignedUrl(path, 3600);
+      if (error) throw error;
+      setReceiptUrls(prev => ({ ...prev, [path]: data.signedUrl }));
+      return data.signedUrl;
+    } catch (e) { console.error(e); return null; }
+  }, [receiptUrls]);
+
+  const handleViewReceipt = async (path) => {
+    const url = await getReceiptUrl(path);
+    if (url) window.open(url, '_blank');
+    else alert('Could not load receipt. Try refreshing.');
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    onSignOut();
+  };
+
+  const totalPasses = rows.length;
+  const totalRevenue = totalPasses * ravePrice;
+  const confirmed = rows.filter(r => r.orders.status === 'confirmed').length;
+  const pending = rows.filter(r => r.orders.status === 'awaiting_verification').length;
+
+  const animatedPasses = useCountUp(totalPasses);
+  const animatedRevenue = useCountUp(totalRevenue, 1200);
+  const animatedConfirmed = useCountUp(confirmed);
+  const animatedPending = useCountUp(pending);
+
+  const salesOverTime = useMemo(() => {
+    if (rows.length === 0) {
+      const days = [];
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today); d.setDate(today.getDate() - i);
+        days.push({
+          label: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+          value: 0,
+        });
+      }
+      return days;
+    }
+    const sorted = [...rows].sort((a, b) =>
+      new Date(a.orders.created_at) - new Date(b.orders.created_at));
+    const firstDate = new Date(sorted[0].orders.created_at);
+    const today = new Date();
+    const dayDiff = Math.max(6, Math.min(13,
+      Math.floor((today - firstDate) / 86400000)));
+    const buckets = {};
+    for (let i = dayDiff; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      buckets[key] = {
+        label: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+        value: 0,
+      };
+    }
+    let cumulative = 0;
+    const sortedKeys = Object.keys(buckets).sort();
+    const daily = {};
+    for (const r of rows) {
+      const k = new Date(r.orders.created_at).toISOString().slice(0, 10);
+      daily[k] = (daily[k] || 0) + 1;
+    }
+    for (const k of sortedKeys) {
+      cumulative += (daily[k] || 0);
+      buckets[k].value = cumulative;
+    }
+    return sortedKeys.map(k => buckets[k]);
+  }, [rows]);
+
+  const hourlyData = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, i) => ({
+      label: (i === 0 ? '12a' : i < 12 ? i + 'a' : i === 12 ? '12p' : (i - 12) + 'p'),
+      hour: i,
+      value: 0,
+    }));
+    for (const r of rows) {
+      const h = new Date(r.orders.created_at).getHours();
+      hours[h].value++;
+    }
+    return hours;
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r =>
+      (r.name || '').toLowerCase().includes(q) ||
+      (r.orders.buyer_name || '').toLowerCase().includes(q) ||
+      (r.orders.buyer_email || '').toLowerCase().includes(q) ||
+      (r.orders.buyer_phone || '').toLowerCase().includes(q) ||
+      (r.orders.order_number || '').toLowerCase().includes(q)
+    );
+  }, [rows, search]);
+
+  return (
+    <div className="dash">
+      <div className="topbar">
+        <div className="topbar-brand">
+          <div className="topbar-logo">
+            <img src="/ukd-logo-color.png" alt="UKD" />
+          </div>
+          <div>
+            <div className="topbar-title">
+              <span className="accent">After Party</span> Portal
+            </div>
+            <div className="topbar-live">
+              <span className="pulse-dot"></span>
+              <span>Live \u2022 {fmtTimeAgo(lastUpdate)}</span>
+            </div>
+          </div>
+        </div>
+        <button className="btn-ghost" onClick={handleSignOut}>Sign out</button>
+      </div>
+
+      <div className={'hero-stat' + (flashHero ? ' flash' : '')}>
+        <div className="hero-stat-label">RAVE PASSES SOLD</div>
+        <div className="hero-stat-number">{animatedPasses.toLocaleString('en-PH')}</div>
+        <div className="hero-stat-sub">
+          out of <strong>500</strong> capacity \u2022 <strong>{peso(animatedRevenue)}</strong> total revenue
+        </div>
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat-tile confirmed">
+          <div className="stat-tile-label">Confirmed</div>
+          <div className="stat-tile-value">{animatedConfirmed}</div>
+        </div>
+        <div className="stat-tile pending">
+          <div className="stat-tile-label">Pending</div>
+          <div className="stat-tile-value">{animatedPending}</div>
+        </div>
+        <div className="stat-tile revenue">
+          <div className="stat-tile-label">% of Cap</div>
+          <div className="stat-tile-value">{Math.round((totalPasses / 500) * 100)}%</div>
+        </div>
+      </div>
+
+      <div className="chart-card">
+        <div className="chart-card-head">
+          <div className="chart-title">Sales Curve</div>
+          <div className="chart-sub">cumulative</div>
+        </div>
+        <SalesAreaChart data={salesOverTime} />
+      </div>
+
+      <div className="chart-card">
+        <div className="chart-card-head">
+          <div className="chart-title">Hourly Pulse</div>
+          <div className="chart-sub">when fans buy</div>
+        </div>
+        <HourlyBarChart data={hourlyData} />
+      </div>
+
+      <div className="privacy-strip">
+        Buyer contact info is shared with UKD for after-party fulfillment per buyer consent. Handle responsibly under RA 10173 (Data Privacy Act).
+      </div>
+
+      <div className="search-wrap">
+        <span className="search-icon">\u2315</span>
+        <input className="search-input" type="text"
+               value={search} onChange={(e) => setSearch(e.target.value)}
+               placeholder="Search by attendee, buyer, email, phone, or order #" />
+      </div>
+
+      {error && <div className="error-pill" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {loading && (
+        <div className="attendee-list">
+          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 90 }} />)}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="empty-state">
+          <div className="icon">\u25CB</div>
+          {search ? 'No matches. Try a different search.' : 'No rave passes sold yet. The party hasn\u2019t started.'}
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <div className="attendee-list">
+          {filtered.map(row => {
+            const o = row.orders;
+            const sCls = o.status === 'confirmed' ? 'confirmed'
+                       : o.status === 'awaiting_verification' ? 'pending'
+                       : o.status === 'rejected' ? 'rejected' : 'other';
+            const sLabel = o.status === 'awaiting_verification' ? 'Pending'
+                        : o.status === 'confirmed' ? 'Confirmed'
+                        : o.status === 'rejected' ? 'Rejected'
+                        : (o.status || '\u2014');
+            const isNew = newRowIds.has(row.id);
+            return (
+              <div key={row.id} className={'attendee-card' + (isNew ? ' new' : '')}>
+                <div className="attendee-row">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="attendee-name">{row.name || 'Unnamed'}</div>
+                    <div className="attendee-buyer">
+                      bought by <strong>{o.buyer_name || 'unknown'}</strong> \u2022 {fmtDate(o.created_at)}
+                    </div>
+                    <div className="attendee-contact">
+                      {o.buyer_email && <span>\u2709 {o.buyer_email}</span>}
+                      {o.buyer_phone && <span>\u260E {o.buyer_phone}</span>}
+                      <span>#{o.order_number || '\u2014'}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    <span className={'status-chip ' + sCls}>{sLabel}</span>
+                    {o.receipt_path && (
+                      <button className="receipt-btn" onClick={() => handleViewReceipt(o.receipt_path)}>
+                        Receipt
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [session, setSession] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session); setChecking(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="login-wrap">
+        <div className="font-display" style={{ fontSize: 14, color: 'var(--ink-muted)',
+                                                letterSpacing: 2, textTransform: 'uppercase' }}>
+          Loading\u2026
+        </div>
+      </div>
+    );
+  }
+  if (!session) return <LoginScreen onSignedIn={(s) => setSession(s)} />;
+  return <Dashboard session={session} onSignOut={() => setSession(null)} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ErrorBoundary><App /></ErrorBoundary>
+);
+</script>
+</body>
+</html>
