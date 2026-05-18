@@ -747,7 +747,7 @@ function LoginScreen({ onSignedIn }) {
           <input className="field-input" type="email" autoComplete="email"
                  value={email} onChange={(e) => setEmail(e.target.value)}
                  onKeyDown={(e) => e.key === 'Enter' && submit()}
-                 placeholder="ultimatekpopdavao@gmail.com" />
+                 placeholder="partner@example.com" />
         </div>
         <div className="field-group">
           <label className="field-label">Password</label>
@@ -1026,7 +1026,7 @@ function Dashboard({ session, onSignOut }) {
             </div>
             <div className="topbar-live">
               <span className="pulse-dot"></span>
-              <span>Live \u2022 {fmtTimeAgo(lastUpdate)}</span>
+              <span>Live • {fmtTimeAgo(lastUpdate)}</span>
             </div>
           </div>
         </div>
@@ -1037,7 +1037,7 @@ function Dashboard({ session, onSignOut }) {
         <div className="hero-stat-label">RAVE PASSES SOLD</div>
         <div className="hero-stat-number">{animatedPasses.toLocaleString('en-PH')}</div>
         <div className="hero-stat-sub">
-          out of <strong>500</strong> capacity \u2022 <strong>{peso(animatedRevenue)}</strong> total revenue
+          out of <strong>500</strong> capacity • <strong>{peso(animatedRevenue)}</strong> total revenue
         </div>
       </div>
 
@@ -1081,7 +1081,7 @@ function Dashboard({ session, onSignOut }) {
       </div>
 
       <div className="search-wrap">
-        <span className="search-icon">\u2315</span>
+        <span className="search-icon">⌕</span>
         <input className="search-input" type="text"
                value={search} onChange={(e) => setSearch(e.target.value)}
                placeholder="Search by attendee, buyer, email, phone, or order #" />
@@ -1097,7 +1097,7 @@ function Dashboard({ session, onSignOut }) {
 
       {!loading && filtered.length === 0 && (
         <div className="empty-state">
-          <div className="icon">\u25CB</div>
+          <div className="icon">○</div>
           {search ? 'No matches. Try a different search.' : 'No rave passes sold yet. The party hasn\u2019t started.'}
         </div>
       )}
@@ -1120,11 +1120,11 @@ function Dashboard({ session, onSignOut }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="attendee-name">{row.name || 'Unnamed'}</div>
                     <div className="attendee-buyer">
-                      bought by <strong>{o.buyer_name || 'unknown'}</strong> \u2022 {fmtDate(o.created_at)}
+                      bought by <strong>{o.buyer_name || 'unknown'}</strong> • {fmtDate(o.created_at)}
                     </div>
                     <div className="attendee-contact">
-                      {o.buyer_email && <span>\u2709 {o.buyer_email}</span>}
-                      {o.buyer_phone && <span>\u260E {o.buyer_phone}</span>}
+                      {o.buyer_email && <span>✉ {o.buyer_email}</span>}
+                      {o.buyer_phone && <span>☎ {o.buyer_phone}</span>}
                       <span>#{o.order_number || '\u2014'}</span>
                     </div>
                   </div>
@@ -1163,7 +1163,7 @@ function App() {
       <div className="login-wrap">
         <div className="font-display" style={{ fontSize: 14, color: 'var(--ink-muted)',
                                                 letterSpacing: 2, textTransform: 'uppercase' }}>
-          Loading\u2026
+          Loading…
         </div>
       </div>
     );
