@@ -6779,7 +6779,7 @@ async function submitOrder({
   const insOrder = await supabase.from('orders').insert({
     event_id: event.id,
     ticket_type_id: primaryTicketTypeId,
-    pickup_slot_id: pickupSlotId,
+    pickup_slot_id: null,
     buyer_name: buyer.name.trim(),
     buyer_email: buyer.email.trim().toLowerCase(),
     buyer_phone: buyer.phone.trim(),
@@ -7538,11 +7538,10 @@ function LegendDot({ color, gradient, label, border }) {
 }
 
 // ============================================================
-// DETAILS STEP (pickup + buyer info)
+// DETAILS STEP (buyer contact info)
 // ============================================================
 function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuyer, totals, onNext, onBack }) {
   const valid =
-    pickupSlotId &&
     buyer.name.trim().length >= 2 &&
     buyer.email.trim().includes('@') &&
     buyer.phone.trim().length >= 7;
@@ -7551,31 +7550,9 @@ function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuy
     <Card>
       <SectionTitle
         eyebrow="Step 4"
-        title="Pickup & contact"
-        subtitle="When can you pick up your physical tickets? We'll also send confirmation to your email."
+        title="Your details"
+        subtitle="We'll send your ticket confirmation to your email."
       />
-
-      <SubLabel iconName="calendar">PICKUP DATE</SubLabel>
-      <select value={pickupSlotId || ''} onChange={(e) => setPickupSlotId(e.target.value || null)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 18, boxSizing: 'border-box', appearance: 'none' }}>
-        <option value="">Choose a Friday...</option>
-        {pickupSlots.map(s => (
-          <option key={s.id} value={s.id}>
-            {formatDate(s.slot_date, { weekday: 'long', year: true })} · {formatTime(s.slot_start)} – {formatTime(s.slot_end)}
-          </option>
-        ))}
-      </select>
-      {pickupSlotId && (
-        <div style={{
-          padding: '10px 12px', background: 'rgba(0, 229, 255, 0.06)',
-          border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: 8,
-          fontSize: 12, color: 'var(--accent)', marginBottom: 22,
-          display: 'flex', alignItems: 'center', gap: 8
-        }}>
-          <Icon name="pin" size={13} />
-          {pickupSlots.find(s => s.id === pickupSlotId)?.location}
-        </div>
-      )}
 
       <SubLabel iconName="user">YOUR NAME</SubLabel>
       <input type="text" value={buyer.name} onChange={(e) => setBuyer({ ...buyer, name: e.target.value })}
@@ -7862,7 +7839,7 @@ function DoneScreen({ order, event, onReturnHome }) {
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 22 }}>
-            Save your order number for pickup. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
+            Save your order number for the event. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
           </div>
           {onReturnHome && (
             <button onClick={onReturnHome} style={{
