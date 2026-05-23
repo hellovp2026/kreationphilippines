@@ -6457,14 +6457,16 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [evR, ttR, aR, psR, sR, osR, oR] = await Promise.all([
+        const [evR, ttR, aR, psR, sR, takenR] = await Promise.all([
           supabase.from('events').select('*').eq('is_active', true).limit(1).maybeSingle(),
           supabase.from('ticket_types').select('*').order('display_order'),
           supabase.from('add_ons').select('*').eq('is_active', true).order('display_order'),
           supabase.from('pickup_slots').select('*').eq('is_active', true).order('slot_date'),
           supabase.from('seats').select('*').order('row_label').order('seat_number'),
-          supabase.from('order_seats').select('seat_id, orders!inner(status)'),
-          supabase.from('orders').select('id, status').in('status', ['awaiting_verification', 'confirmed', 'pending_payment'])
+          // Taken seats come from a SECURITY DEFINER function so anon never
+          // reads order_seats or orders directly. The function only returns
+          // seat_ids — no buyer_name, no order_id, no linkage to who has what.
+          supabase.rpc('get_taken_seat_ids')
         ]);
         if (evR.error) throw evR.error;
         if (!evR.data) throw new Error('No active event configured yet.');
@@ -6479,19 +6481,8 @@ function App() {
         setPickupSlots(psR.data || []);
         setSeats(sR.data || []);
 
-        // Build set of taken seat IDs (seats in active orders)
-        const activeOrderIds = new Set((oR.data || []).map(o => o.id));
-        const taken = new Set();
-        (osR.data || []).forEach(os => {
-          if (activeOrderIds.has(os.order_id)) taken.add(os.seat_id);
-          // Note: orders!inner join returns the join row; we check via active list above
-        });
-        // Fallback: use the inner-joined status field if provided
-        (osR.data || []).forEach(os => {
-          if (os.orders && ['awaiting_verification', 'confirmed', 'pending_payment'].includes(os.orders.status)) {
-            taken.add(os.seat_id);
-          }
-        });
+        // takenR.data is [{ seat_id: 'uuid' }, ...] from the RPC.
+        const taken = new Set((takenR.data || []).map(r => r.seat_id));
         setTakenSeatIds(taken);
 
         setLoading(false);
