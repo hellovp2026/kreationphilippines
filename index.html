@@ -5498,7 +5498,18 @@ function BanRevokeScreen({ onBackHome }) {
 
     setSubmitting(true);
     try {
+      // Generate the application id client-side so we can include it in the
+      // payload AND use it for the agreement PDF reference (BRA-XXXXXXXX).
+      // Mirrors the helper used for registrations elsewhere in this file.
+      const newAppId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
       const payload = {
+        id: newAppId,
         full_name: form.full_name.trim(),
         contact_phone: form.contact_phone.trim() || null,
         contact_email: form.contact_email.trim(),
@@ -5511,13 +5522,15 @@ function BanRevokeScreen({ onBackHome }) {
         agreed_to_conduct: true,
         agreed_at: new Date().toISOString(),
       };
-      const { data, error: insertError } = await supabase
+      // Insert only — no .select() after — so anon only needs INSERT
+      // privilege on this table (not SELECT). The payload already has the
+      // id we generated above, so the confirmation screen + PDF have
+      // everything they need without a read-back.
+      const { error: insertError } = await supabase
         .from('ban_revoke_applications')
-        .insert(payload)
-        .select()
-        .single();
+        .insert(payload);
       if (insertError) throw insertError;
-      setSubmittedApp(data || payload);
+      setSubmittedApp(payload);
       setStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
