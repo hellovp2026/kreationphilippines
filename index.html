@@ -6775,13 +6775,26 @@ async function submitOrder({
   if (upR.error) throw new Error('Receipt upload failed: ' + upR.error.message);
 
   // 2. Create order
+  // Generate id client-side so anon doesn't need to read sensitive columns
+  // back after insert. The DB trigger trg_set_order_number fills in
+  // order_number on BEFORE INSERT — we narrow .select() to that one field
+  // and rebuild a small order object from what we already know.
+  const orderId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+    ? window.crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
   const primaryTicketTypeId = attendees[0] ? attendees[0].ticketTypeId : null;
+  const buyerEmail = buyer.email.trim().toLowerCase();
   const insOrder = await supabase.from('orders').insert({
+    id: orderId,
     event_id: event.id,
     ticket_type_id: primaryTicketTypeId,
     pickup_slot_id: null,
     buyer_name: buyer.name.trim(),
-    buyer_email: buyer.email.trim().toLowerCase(),
+    buyer_email: buyerEmail,
     buyer_phone: buyer.phone.trim(),
     subtotal: totals.subtotal,
     add_on_total: totals.addOnTotal,
@@ -6791,9 +6804,14 @@ async function submitOrder({
     receipt_path: path,
     receipt_uploaded_at: new Date().toISOString(),
     status: 'awaiting_verification',
-  }).select().single();
+  }).select('order_number').single();
   if (insOrder.error) throw new Error('Order creation failed: ' + insOrder.error.message);
-  const order = insOrder.data;
+  // Synthetic order object — only the fields the success screen reads.
+  const order = {
+    id: orderId,
+    order_number: insOrder.data.order_number,
+    buyer_email: buyerEmail,
+  };
 
   // 3. Insert attendees
   const attendeeRows = attendees.map((a, i) => ({
