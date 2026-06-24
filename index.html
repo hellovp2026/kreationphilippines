@@ -7,9 +7,12 @@
 <link rel="icon" type="image/png" href="/kph-favicon.png">
 <link rel="apple-touch-icon" href="/kph-favicon.png">
 
+<!-- Vercel Web Analytics — auto-served by Vercel, no install required -->
+<script defer src="/_vercel/insights/script.js"></script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -50,7 +53,7 @@
   }
   .font-display { font-family: 'Sora', ui-sans-serif; letter-spacing: -0.4px; }
   .font-arcade { font-family: 'Bungee', ui-sans-serif; }
-  .font-mono { font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important; }
+  .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
   .grad-text {
     background: linear-gradient(90deg, #FF1B6B 0%, #C724FF 50%, #00E5FF 100%);
@@ -268,7 +271,7 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 9px; font-weight: 600;
     color: var(--text-soft);
-    font-family: 'Sora', ui-sans-serif, sans-serif;
+    font-family: 'JetBrains Mono', monospace;
   }
   .seat:hover:not(.seat-taken) {
     background: rgba(255, 27, 107, 0.25);
@@ -583,7 +586,6 @@ function HomeScreen({ event, ticketTypes, addOns, onBuyTickets, onOpenEvent, onO
       <HomeCategoryMarquee />
       <HomeTiers ticketTypes={ticketTypes} addOns={addOns} onBuyTickets={onBuyTickets} />
       <HomePastEvents onOpenEvent={onOpenEvent} />
-      <HomeOverallChampion onOpenCompete={onOpenCompete} />
       <HomeCategories />
       <HomeKreation />
       <HomeFAQ event={event} />
@@ -847,11 +849,15 @@ function Countdown() {
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
     }}>
-      <div className="font-display" style={{
-        fontSize: 13, fontWeight: 600, color: 'var(--text-muted)',
+      <div className="font-mono" style={{
+        fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        Countdown to D-Day
+        <span style={{
+          width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
+          boxShadow: '0 0 10px var(--brand)',
+        }} />
+        COUNTDOWN TO D-DAY
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
         {block(d, 'DAYS')}
@@ -890,15 +896,22 @@ function HomeHero({ event, onBuyTickets }) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
       }}>
         {/* Edition badge */}
-        <div className="font-display" style={{
-          display: 'inline-flex', alignItems: 'center',
-          borderLeft: '3px solid var(--brand)',
-          paddingLeft: 14,
-          fontSize: 14, fontWeight: 600,
-          color: 'var(--text)',
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 12,
+          padding: '8px 16px',
+          background: 'rgba(255,27,107,0.08)',
+          border: '1px solid rgba(255,27,107,0.4)',
+          borderRadius: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: 3,
+          color: 'var(--brand)',
+          fontFamily: 'JetBrains Mono, monospace',
           marginBottom: 32,
         }}>
-          Edition 06 · Presented by Kreation Philippines
+          <span style={{
+            width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
+            boxShadow: '0 0 10px var(--brand)',
+          }} />
+          EDITION 06 · PRESENTED BY KREATION PHILIPPINES
         </div>
 
         {/* THE EVENT LOGO — image has baked-in alpha fade */}
@@ -1131,9 +1144,10 @@ function EventLogoLockup() {
 function HomeCategoryMarquee() {
   const items = [
     'OPEN STAGE',
-    'BATTLE OF THE ENTERTAINMENTS',
-    'FANCHANT BATTLE',
-    'FANBOOTH BATTLE',
+    '₱35,000 PRIZE POOL',
+    'AUGUST 22, 2026',
+    'CAP GRAND AUDITORIUM',
+    'ONE CHAMPION',
   ];
   const allItems = [...items, ...items, ...items, ...items];
   return (
@@ -1288,34 +1302,10 @@ function HomeCategories() {
     {
       number: '01',
       name: 'Open Stage',
-      tagline: 'For the independent cover groups.',
-      desc: "The stage for independent cover groups — groups that aren't tied to a Dance Cover Entertainment. A chance to perform alongside affiliated groups and prove what an independent team can do.",
+      tagline: 'The main event. One champion takes the night.',
+      desc: "DKC 2026's headline competition. Cover groups go head to head on the CAP Grand Auditorium stage — three judges plus the crowd decide the winners. One group walks away the Open Stage Champion.",
       accent: '#FF1B6B',
       glyph: 'diamond',
-    },
-    {
-      number: '02',
-      name: 'Battle of the Entertainments',
-      tagline: 'Cover groups. Affiliated labels. The headliner.',
-      desc: "The main competition. Cover groups compete representing their affiliated Dance Cover Entertainment — the labels and entertainment houses that train Davao's top cover groups. Three judges plus the crowd decide the winners. One Entertainment takes the title.",
-      accent: '#C724FF',
-      glyph: 'crown',
-    },
-    {
-      number: '03',
-      name: 'Fanchant Battle',
-      tagline: 'Loudest fandom takes the title.',
-      desc: "Fandoms aligned with each Entertainment face off on their idols' signature fanchants. Tightest coordination, loudest delivery, deepest fan knowledge wins. Points stack toward your Entertainment's overall standing.",
-      accent: '#00E5FF',
-      glyph: 'speaker',
-    },
-    {
-      number: '04',
-      name: 'Fanbooth Battle',
-      tagline: 'Build a shrine. Win the showcase.',
-      desc: "Each Entertainment's fan community transforms their booth into an idol shrine. Best decoration, best engagement, best fan experience wins the day — and adds points to the overall Entertainment standings.",
-      accent: '#FF6FA8',
-      glyph: 'booth',
     },
   ];
 
@@ -1480,16 +1470,6 @@ function CategoryGlyph({ type, accent }) {
       </svg>
     );
   }
-  if (type === 'vote') {
-    return (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-        <path d="M 7 18 L 33 18 L 35 34 L 5 34 Z" stroke={stroke} strokeWidth="2.5" strokeLinejoin="round" fill="none" />
-        <line x1="15" y1="18" x2="25" y2="18" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-        <path d="M 14 18 L 14 6 L 26 6 L 26 18" stroke={stroke} strokeWidth="2.5" strokeLinejoin="round" fill="none" />
-        <path d="M 17 11 L 19.5 13.5 L 24 9" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      </svg>
-    );
-  }
   if (type === 'crown') {
     return (
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -1531,352 +1511,6 @@ function CategoryGlyph({ type, accent }) {
     );
   }
   return null;
-}
-
-// ============================================================
-// HOME OVERALL CHAMPION — points system + prize pool
-// ============================================================
-function HomeOverallChampion({ onOpenCompete }) {
-  return (
-    <section id="overall-champion" className="champion-section-mobile" style={{
-      position: 'relative',
-      padding: '100px 32px 120px',
-      maxWidth: 1320, margin: '0 auto',
-      overflow: 'hidden',
-    }}>
-      {/* Background atmosphere */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 70% 50% at 50% 50%, rgba(255, 27, 107, 0.08), transparent 70%)',
-      }} />
-
-      {/* Section header */}
-      <div style={{ position: 'relative', marginBottom: 64, maxWidth: 1100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-          <span style={{
-            width: 36, height: 1, background: 'linear-gradient(90deg, var(--brand), transparent)',
-          }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--brand)',
-            fontWeight: 700,
-          }}>
-            03 — EVENT MECHANICS
-          </span>
-        </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
-        }}>
-          Three categories.{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>One overall champion.</span>
-        </h2>
-        <p style={{
-          fontSize: 'clamp(15px, 1.4vw, 18px)',
-          lineHeight: 1.7, color: 'var(--text-muted)',
-          margin: 0, maxWidth: 700,
-        }}>
-          Every Dance Cover Entertainment competes for individual titles in three of the four lanes.
-          Points stack across all three — plus the crowd's live vote on the night. The Entertainment
-          with the highest total at the end of the night
-          claims the Overall Champion title — and the biggest prize pool we've ever offered.
-        </p>
-      </div>
-
-      {/* Flow diagram: 3 categories → overall champion */}
-      <div style={{ position: 'relative' }}>
-        {/* Three category boxes */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 18,
-          marginBottom: 36,
-          position: 'relative',
-        }}>
-          <PointCategoryBox name="Battle of the Entertainments" accent="#C724FF" glyph="crown" />
-          <PointCategoryBox name="Fanchant Battle" accent="#00E5FF" glyph="speaker" />
-          <PointCategoryBox name="Fanbooth Battle" accent="#FF6FA8" glyph="booth" />
-          <PointCategoryBox name="Live Voting" accent="#7BD1FF" glyph="vote" />
-        </div>
-
-        {/* Down arrows / convergence indicators */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          gap: 32, marginBottom: 36,
-        }}>
-          <svg width="32" height="40" viewBox="0 0 32 40">
-            <path d="M 16 0 L 16 32 M 8 24 L 16 32 L 24 24"
-                  stroke="var(--brand)" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-          <span className="font-mono" style={{
-            fontSize: 11, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
-          }}>
-            POINTS STACK
-          </span>
-          <svg width="32" height="40" viewBox="0 0 32 40">
-            <path d="M 16 0 L 16 32 M 8 24 L 16 32 L 24 24"
-                  stroke="var(--brand)" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-        </div>
-
-        {/* THE OVERALL CHAMPION CARD */}
-        <div className="champion-card-mobile" style={{
-          position: 'relative',
-          padding: '48px 40px',
-          borderRadius: 14,
-          background: 'linear-gradient(135deg, rgba(255,27,107,0.12) 0%, rgba(199,36,255,0.12) 50%, rgba(0,229,255,0.10) 100%)',
-          border: '1px solid rgba(255, 27, 107, 0.4)',
-          overflow: 'hidden',
-          boxShadow: '0 30px 80px rgba(255, 27, 107, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)',
-        }}>
-          {/* Corner glows */}
-          <div style={{
-            position: 'absolute', top: -150, left: -150,
-            width: 400, height: 400, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255, 27, 107, 0.4), transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: -150, right: -150,
-            width: 400, height: 400, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(0, 229, 255, 0.3), transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div style={{
-            position: 'relative',
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: 36,
-            alignItems: 'center',
-          }} className="champion-grid">
-            {/* Trophy icon */}
-            <div style={{
-              flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 120, height: 120,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #FF1B6B, #C724FF, #00E5FF)',
-              boxShadow: '0 12px 40px rgba(255,27,107,0.4), inset 0 2px 0 rgba(255,255,255,0.2)',
-            }}>
-              <TrophyIcon size={60} />
-            </div>
-
-            {/* Right side: text */}
-            <div>
-              <div className="font-mono" style={{
-                fontSize: 11, letterSpacing: 3, color: 'var(--brand)',
-                fontWeight: 700, marginBottom: 12,
-              }}>
-                ★ THE TITLE ★
-              </div>
-              <h3 className="font-display champion-title-mobile" style={{
-                fontSize: 'clamp(28px, 4vw, 48px)', lineHeight: 1, margin: '0 0 16px',
-                fontWeight: 900, letterSpacing: -1.5,
-                background: 'linear-gradient(90deg, #FFFFFF 0%, #FFE7F3 50%, #FFFFFF 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                color: 'transparent',
-              }}>
-                OVERALL CHAMPION ENTERTAINMENT
-              </h3>
-              <p style={{
-                fontSize: 16, lineHeight: 1.65, color: 'var(--text-muted)',
-                margin: 0, maxWidth: 640,
-              }}>
-                One Dance Cover Entertainment will walk out of CAP Grand Auditorium
-                with the highest combined score across all four categories — and the
-                largest cash prize Kreation has ever put on a stage.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bigger prize pool callout */}
-        <div style={{
-          marginTop: 28,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 18,
-        }}>
-          <StakeStatCard
-            eyebrow="THIS EDITION"
-            value="BIGGER"
-            sublabel="Prize pool than any previous Kreation event"
-            accent="#FF1B6B"
-          />
-          <StakeStatCard
-            eyebrow="ON STAGE"
-            value="HIGHER"
-            sublabel="Stakes — every point counts toward the overall title"
-            accent="#C724FF"
-          />
-          <StakeStatCard
-            eyebrow="ON THE LINE"
-            value="THE TITLE"
-            sublabel="Plus category-level champion prizes across all four lanes"
-            accent="#00E5FF"
-          />
-        </div>
-
-        {/* CTA for competing crews — links to dedicated compete page */}
-        <div style={{
-          marginTop: 36,
-          padding: '24px 28px',
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.025)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          display: 'flex', flexWrap: 'wrap', gap: 18,
-          alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div className="font-display" style={{
-              fontSize: 13, color: 'var(--brand)',
-              fontWeight: 600, marginBottom: 6,
-            }}>
-              For competing crews &amp; entertainments
-            </div>
-            <div className="font-display" style={{
-              fontSize: 18, fontWeight: 700, color: 'var(--text)',
-              letterSpacing: -0.3,
-            }}>
-              Full competition rules, registration, point breakdowns →
-            </div>
-          </div>
-          <a href="#" onClick={(e) => { e.preventDefault(); onOpenCompete && onOpenCompete(); }} style={{
-            padding: '12px 22px',
-            borderRadius: 4,
-            background: 'rgba(255,27,107,0.1)',
-            border: '1px solid rgba(255,27,107,0.5)',
-            color: 'var(--brand)',
-            fontFamily: 'Sora, sans-serif',
-            fontWeight: 700, fontSize: 12, letterSpacing: 1.5,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-            transition: 'background 0.2s',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,27,107,0.2)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,27,107,0.1)'; }}
-          >
-            VIEW EVENT MECHANICS →
-          </a>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PointCategoryBox({ name, accent, glyph }) {
-  return (
-    <div style={{
-      position: 'relative',
-      padding: '20px 24px',
-      borderRadius: 8,
-      background: 'rgba(255,255,255,0.025)',
-      border: '1px solid ' + accent + '40',
-      textAlign: 'center',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        position: 'absolute', top: -40, right: -40,
-        width: 120, height: 120, borderRadius: '50%',
-        background: 'radial-gradient(circle, ' + accent + '25, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'relative', display: 'flex', justifyContent: 'center',
-        marginBottom: 10,
-      }}>
-        <CategoryGlyph type={glyph} accent={accent} />
-      </div>
-      <div className="font-mono" style={{
-        position: 'relative',
-        fontSize: 10, letterSpacing: 2.5, color: accent, fontWeight: 700,
-        marginBottom: 6,
-      }}>
-        +PTS
-      </div>
-      <div className="font-display" style={{
-        position: 'relative',
-        fontSize: 17, fontWeight: 800, color: 'var(--text)',
-        letterSpacing: -0.3, lineHeight: 1.2,
-      }}>
-        {name}
-      </div>
-    </div>
-  );
-}
-
-function StakeStatCard({ eyebrow, value, sublabel, accent }) {
-  return (
-    <div style={{
-      position: 'relative',
-      padding: '24px 24px 22px',
-      borderRadius: 8,
-      background: 'rgba(255,255,255,0.025)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      overflow: 'hidden',
-      transition: 'border-color 0.25s, transform 0.25s',
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.borderColor = accent + '60';
-      e.currentTarget.style.transform = 'translateY(-2px)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-      e.currentTarget.style.transform = 'translateY(0)';
-    }}
-    >
-      <div className="font-mono" style={{
-        fontSize: 10, letterSpacing: 2.5, color: accent, fontWeight: 700,
-        marginBottom: 10,
-      }}>
-        {eyebrow}
-      </div>
-      <div className="font-display" style={{
-        fontSize: 28, fontWeight: 900, color: 'var(--text)',
-        letterSpacing: -1, lineHeight: 1, marginBottom: 10,
-      }}>
-        {value}
-      </div>
-      <div style={{
-        fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)',
-      }}>
-        {sublabel}
-      </div>
-    </div>
-  );
-}
-
-function TrophyIcon({ size = 48 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      {/* Cup */}
-      <path d="M 14 8 L 14 22 C 14 28 18 32 24 32 C 30 32 34 28 34 22 L 34 8 Z"
-            fill="white" stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
-      {/* Side handles */}
-      <path d="M 14 12 L 8 12 C 6 12 6 14 6 16 C 6 20 10 22 14 22"
-            fill="none" stroke="white" strokeWidth="2.5" strokeLinejoin="round" />
-      <path d="M 34 12 L 40 12 C 42 12 42 14 42 16 C 42 20 38 22 34 22"
-            fill="none" stroke="white" strokeWidth="2.5" strokeLinejoin="round" />
-      {/* Base stem */}
-      <rect x="22" y="32" width="4" height="6" fill="white" />
-      {/* Base plate */}
-      <rect x="14" y="38" width="20" height="4" rx="1" fill="white" />
-      {/* Star center */}
-      <path d="M 24 14 L 25.5 18 L 30 18 L 26.5 20.5 L 28 24.5 L 24 22 L 20 24.5 L 21.5 20.5 L 18 18 L 22.5 18 Z"
-            fill="#FF1B6B" />
-    </svg>
-  );
 }
 
 function HomeTiers({ ticketTypes, addOns, onBuyTickets }) {
@@ -2624,7 +2258,7 @@ function EventCard({ event, index, onOpen }) {
             padding: '4px 9px', borderRadius: 3,
             background: 'rgba(255,255,255,0.95)',
             color: '#08020F',
-            fontFamily: 'Sora, sans-serif',
+            fontFamily: 'JetBrains Mono, monospace',
             fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
           }}>
             ★ FLAGSHIP
@@ -2679,7 +2313,7 @@ function EventCard({ event, index, onOpen }) {
           padding: '4px 10px', borderRadius: 999,
           background: event.accent + '15',
           border: '1px solid ' + event.accent + '40',
-          fontFamily: 'Sora, sans-serif',
+          fontFamily: 'JetBrains Mono, monospace',
           fontSize: 10, fontWeight: 700, color: event.accent,
           letterSpacing: 1, flexShrink: 0,
         }}>
@@ -2789,7 +2423,7 @@ function EventDetailView({ eventId, onBackHome, onBackToHallOfFame }) {
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
               border: '1px solid rgba(255,255,255,0.2)',
-              fontFamily: 'Sora, sans-serif',
+              fontFamily: 'JetBrains Mono, monospace',
               fontSize: 10, fontWeight: 700, letterSpacing: 2, color: 'white',
             }}>
               EVENT {num} · {event.year}
@@ -2799,7 +2433,7 @@ function EventDetailView({ eventId, onBackHome, onBackToHallOfFame }) {
                 padding: '6px 12px', borderRadius: 3,
                 background: 'rgba(255,255,255,0.95)',
                 color: '#08020F',
-                fontFamily: 'Sora, sans-serif',
+                fontFamily: 'JetBrains Mono, monospace',
                 fontSize: 10, fontWeight: 700, letterSpacing: 1.5,
               }}>
                 ★ FLAGSHIP
@@ -3317,7 +2951,7 @@ function HomeFooter() {
         paddingTop: 28,
         borderTop: '1px solid rgba(255,255,255,0.06)',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-        fontSize: 11, color: 'var(--text-soft)', fontFamily: 'Sora, sans-serif', letterSpacing: 1,
+        fontSize: 11, color: 'var(--text-soft)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: 1,
       }}>
         <span>© 2026 KREATION PHILIPPINES</span>
         <span>DAVAO · PHILIPPINES</span>
@@ -3350,11 +2984,11 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
         name="Open Stage"
         accent="#FF1B6B"
         tagline="For the independent cover groups."
-        eligibility="The stage for independent cover groups — groups that aren't tied to a Dance Cover Entertainment. A chance to perform alongside affiliated groups and prove what an independent team can do. Groups that ARE tied to an Entertainment can still join, but they only get the Open Stage prize — no Overall Champion points."
+        eligibility="DKC 2026's headline dance competition, open to all cover groups. Three judges plus the crowd decide the winners. One group takes the Open Stage Champion title and the top cash prize."
         rules={[
           'You need at least 4 people in your group.',
           'Solo artists can join too, but you need at least 3 backup dancers (4 people total).',
-          'One person, one group, one category. If you join Open Stage, you can\'t also join Battle of the Entertainments, Fanchant Battle, or Fanbooth Battle.',
+          'One person, one group. Each group enters Open Stage once.',
           'You have to show up for orientation, blockings, and rehearsals. You also have to pay your registration fee by the deadline.',
           'Get to the venue on time. If your group is called and you\'re not on stage, you\'re out.',
           'Don\'t change your song or your members in the last 7 days before the event. If you do, you\'re out. If someone has a real emergency, tell us right away and we\'ll work it out.',
@@ -3363,61 +2997,7 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
           'We\'ll post the final rankings after the event.',
         ]}
       />
-      <CategoryRules
-        id="battle"
-        number="02"
-        name="Battle of the Entertainments"
-        accent="#C724FF"
-        tagline="Cover groups. Affiliated labels. The headliner."
-        eligibility="For cover groups that represent a Dance Cover Entertainment. To qualify for the BOE title, your group must participate in BOTH Fanbooth AND Fanchant alongside your cover stage performance. Groups representing an Entertainment that don't compete in both will be redirected to Open Stage and won't earn Overall Champion points. Each Entertainment can enter up to 5 cover groups."
-        rules={[
-          'All Open Stage rules apply here too — member count, attendance, song rules (intro + main song OR main song + dance break, max 5 minutes per entry), costume rules, remixes, and choreography for the intro/dance break portions (own choreography or the covered idol group\'s official choreography).',
-          'Your cover group has to officially represent a Dance Cover Entertainment.',
-          'To compete for the BOE title, you must participate in Fanbooth AND Fanchant. Skipping either drops you to Open Stage only — no Overall Champion points.',
-          'Each Entertainment can send up to 5 cover groups.',
-          'One person, one group, one category. If you join Battle of the Entertainments, you can\'t also join Open Stage, Fanchant Battle, or Fanbooth Battle.',
-          'Three judges plus the crowd decide the winners. One Entertainment takes the title.',
-          'Your points add up to your Entertainment\'s Overall Champion score.',
-        ]}
-      />
-      <CategoryRules
-        id="fanchant"
-        number="03"
-        name="Fanchant Battle"
-        accent="#00E5FF"
-        tagline="Loudest fandom takes the title."
-        eligibility="For Dance Cover Entertainments only. Pick which fandom you want to represent. You need at least 10 members on your fanchant team."
-        rules={[
-          'You need at least 10 members on your fanchant team.',
-          'One person, one group, one category. If you join Fanchant Battle, you can\'t also join Open Stage, Battle of the Entertainments, or Fanbooth Battle.',
-          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱230) as your entry ticket to get in.',
-          'Every member you signed up has to be there on event day. No swap-outs.',
-          'Pick ONE song. Do the fanchant for that exact song.',
-          'Bring lightsticks, banners, photocards, and other fan stuff. Your props should match the idol group you picked.',
-          'We\'ll play the real song. You do the fanchant live over it.',
-          'Your points add up to your Entertainment\'s Overall Champion score.',
-        ]}
-      />
-      <CategoryRules
-        id="fanbooth"
-        number="04"
-        name="Fanbooth Battle"
-        accent="#FF6FA8"
-        tagline="Build a shrine. Win the showcase."
-        eligibility="For Dance Cover Entertainments only. Pick which fandom you want to represent. You need exactly 3 members to run the booth."
-        rules={[
-          'You need 3 members to run your booth.',
-          'Only these 3 people can work inside the booth. No extras.',
-          'One person, one group, one category. If you join Fanbooth Battle, you can\'t also join Open Stage, Battle of the Entertainments, or Fanchant Battle.',
-          'Members do NOT pay the ₱300 participant fee. You can use a regular audience ticket (₱230) as your entry ticket to get in.',
-          'Each booth represents one fandom. Your Entertainment can pick a different fandom for Fanchant Battle if you want.',
-          'Have your booth set up before doors open. Your decorations, layout, and how you treat visitors all count toward the score.',
-          'Keep your booth staffed and looking good all day.',
-          'Your points add up to your Entertainment\'s Overall Champion score.',
-        ]}
-      />
       <JudgingCriteria />
-      <PointSystem />
       <PrizeBreakdown />
       <RegistrationPolicy />
       <RegistrationForm event={event} />
@@ -3480,15 +3060,22 @@ function CompeteHero() {
       <div className="blob blob-cyan" style={{ opacity: 0.3 }} />
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 900 }}>
-        <div className="font-display" style={{
-          display: 'inline-flex', alignItems: 'center',
-          borderLeft: '3px solid var(--brand)',
-          paddingLeft: 14,
-          fontSize: 14, fontWeight: 600,
-          color: 'var(--text)',
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 12,
+          padding: '8px 16px',
+          background: 'rgba(255,27,107,0.08)',
+          border: '1px solid rgba(255,27,107,0.4)',
+          borderRadius: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: 3,
+          color: 'var(--brand)',
+          fontFamily: 'JetBrains Mono, monospace',
           marginBottom: 28,
         }}>
-          For competing crews &amp; entertainments
+          <span style={{
+            width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
+            boxShadow: '0 0 10px var(--brand)',
+          }} />
+          FOR COMPETING CREWS & ENTERTAINMENTS
         </div>
 
         <h1 className="font-display" style={{
@@ -3522,7 +3109,7 @@ function CompeteHero() {
           <MetaItem label="EVENT" value="Davao K-Pop Convention 2026" />
           <MetaItem label="DATE" value="Aug 22, 2026 · SAT" />
           <MetaItem label="VENUE" value="CAP Grand Auditorium" />
-          <MetaItem label="REG DEADLINE" value="July 27, 2026" />
+          <MetaItem label="REG DEADLINE" value="Aug 15, 2026" />
         </div>
       </div>
     </section>
@@ -3532,11 +3119,7 @@ function CompeteHero() {
 function CompeteQuickNav() {
   const links = [
     { href: '#open-stage', label: 'Open Stage', accent: '#FF1B6B' },
-    { href: '#battle', label: 'Battle of the Entertainments', accent: '#C724FF' },
-    { href: '#fanchant', label: 'Fanchant Battle', accent: '#00E5FF' },
-    { href: '#fanbooth', label: 'Fanbooth Battle', accent: '#FF6FA8' },
     { href: '#judging', label: 'Judging', accent: '#FFB84D' },
-    { href: '#points', label: 'Points', accent: '#7BD1FF' },
     { href: '#prizes', label: 'Prizes', accent: '#FF6FA8' },
     { href: '#register', label: 'Register', accent: '#FF1B6B' },
   ];
@@ -3705,15 +3288,15 @@ function JudgingCriteria() {
           margin: 0, maxWidth: 720,
         }}>
           Each category is scored on three things. The total adds up to 100 points.
-          Your final score is the average of three judges' scores. The audience has its
-          own say through Live Voting — a separate category with its own points.
+          Your final score is the average of three judges' scores plus the audience vote
+          (for dance categories).
         </p>
       </div>
 
       {/* Dance categories criteria */}
       <CriteriaCard
         title="Dance Categories"
-        subtitle="Open Stage · Battle of the Entertainments"
+        subtitle="Open Stage"
         accent="#C724FF"
         criteria={[
           {
@@ -3741,84 +3324,6 @@ function JudgingCriteria() {
               'You perform with real energy and passion. You "sell it" like an idol would.',
               'Your attitude, posture, and style fit the stage.',
               'Your costume matches the K-pop group you\'re covering.',
-            ],
-          },
-        ]}
-      />
-
-      {/* Fanchant criteria */}
-      <CriteriaCard
-        title="Fanchant Battle"
-        subtitle="Volume, sync, and fandom spirit"
-        accent="#00E5FF"
-        criteria={[
-          {
-            name: 'SYNC & TIMING',
-            weight: '40%',
-            points: [
-              'All members start, stop, and shout at the same moments.',
-              'Your timing matches the song and the idols\' singing.',
-              'Your lightstick, prop, and body movements match the chant rhythm.',
-              'No one comes in too early, too late, or falls behind.',
-            ],
-          },
-          {
-            name: 'EXECUTION & VOLUME',
-            weight: '30%',
-            points: [
-              'You say the words clearly. You call the idol names the right way.',
-              'You control your volume — louder for chorus, softer for slow parts, biggest for the big moments.',
-              'You keep your voices strong through the whole performance.',
-              'You use the right props for the idol group — lightsticks, banners, photocards.',
-            ],
-          },
-          {
-            name: 'FANDOM SPIRIT',
-            weight: '30%',
-            points: [
-              'You bring the same energy and feeling as real fans at a live concert.',
-              'You wear matching outfits or fandom colors so people know who you\'re repping.',
-              'Your body language and faces show real fandom culture.',
-              'People watching can instantly tell which idol group you picked.',
-            ],
-          },
-        ]}
-      />
-
-      {/* Fanbooth criteria */}
-      <CriteriaCard
-        title="Fanbooth Battle"
-        subtitle="Design, experience, and authenticity"
-        accent="#FF6FA8"
-        criteria={[
-          {
-            name: 'VISUAL DESIGN',
-            weight: '40%',
-            points: [
-              'Your booth shows the idol group\'s identity, era, or signature look.',
-              'Your colors, lights, and design choices show you know the fandom.',
-              'The booth is organized, photo-worthy, and looks finished from every angle.',
-              'Your materials and work show real effort and craft.',
-            ],
-          },
-          {
-            name: 'FAN EXPERIENCE',
-            weight: '30%',
-            points: [
-              'You give visitors something to do — photo ops, freebies, games, activities.',
-              'Your booth members are friendly and happy to talk about the idol group.',
-              'Visitors can move through the booth easily — no traffic jams.',
-              'People want to post about your booth on social media.',
-            ],
-          },
-          {
-            name: 'FANDOM AUTHENTICITY',
-            weight: '30%',
-            points: [
-              'You represent the idol group with respect and accuracy.',
-              'You include thoughtful nods to their songs, eras, or fan inside-jokes.',
-              'Your members really know the fandom and can talk about it with visitors.',
-              'You don\'t fall back on generic K-pop stuff — your booth feels specific to your fandom.',
             ],
           },
         ]}
@@ -3907,220 +3412,26 @@ function CriteriaCard({ title, subtitle, accent, criteria }) {
   );
 }
 
-function PointSystem() {
-  const breakdown = [
-    {
-      category: 'Battle of the Entertainments',
-      accent: '#C724FF',
-      glyph: 'crown',
-      placements: [
-        { rank: 'Champion', points: 40 },
-        { rank: '1st Runner-up', points: 30 },
-        { rank: '2nd Runner-up', points: 20 },
-      ],
-    },
-    {
-      category: 'Fanchant Battle',
-      accent: '#00E5FF',
-      glyph: 'speaker',
-      placements: [
-        { rank: 'Champion', points: 25 },
-        { rank: '1st Runner-up', points: 15 },
-        { rank: '2nd Runner-up', points: 10 },
-      ],
-    },
-    {
-      category: 'Fanbooth Battle',
-      accent: '#FF6FA8',
-      glyph: 'booth',
-      placements: [
-        { rank: 'Champion', points: 25 },
-        { rank: '1st Runner-up', points: 15 },
-        { rank: '2nd Runner-up', points: 10 },
-      ],
-    },
-    {
-      category: 'Live Voting',
-      accent: '#7BD1FF',
-      glyph: 'vote',
-      placements: [
-        { rank: 'Champion', points: 10 },
-        { rank: '1st Runner-up', points: 6 },
-        { rank: '2nd Runner-up', points: 3 },
-      ],
-    },
-  ];
-
-  return (
-    <section id="points" style={{
-      padding: '80px 32px 40px',
-      maxWidth: 1320, margin: '0 auto',
-    }}>
-      <div style={{ marginBottom: 48, maxWidth: 1100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-          <span style={{
-            width: 36, height: 1, background: 'linear-gradient(90deg, #7BD1FF, transparent)',
-          }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: '#7BD1FF', fontWeight: 700,
-          }}>
-            06 — POINT SYSTEM
-          </span>
-        </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1,
-          margin: '0 0 20px', letterSpacing: -1.8, fontWeight: 800,
-        }}>
-          How the Overall Champion is decided.
-        </h2>
-        <p style={{
-          fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)',
-          margin: '0 0 16px', maxWidth: 760,
-        }}>
-          Each Dance Cover Entertainment earns points in four categories. We add up all your
-          points across all your entries. The Entertainment with the most points at the end
-          of the night wins the Overall Champion title and the biggest cash prize.
-        </p>
-        <p style={{
-          fontSize: 14, lineHeight: 1.7, color: 'var(--text-soft)',
-          margin: '0 0 16px', maxWidth: 760, fontStyle: 'italic',
-        }}>
-          Note: Open Stage doesn't count toward Overall Champion points. It's its own competition
-          with its own title and cash prize.
-        </p>
-        <p style={{
-          fontSize: 14, lineHeight: 1.7, color: 'var(--text-soft)',
-          margin: 0, maxWidth: 760, fontStyle: 'italic',
-        }}>
-          Live Voting is decided by the audience on event night — one vote per ticket order,
-          cast through the official voting form. Voting closes when the final performance ends.
-        </p>
-      </div>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: 18,
-        marginBottom: 32,
-      }}>
-        {breakdown.map((b) => (
-          <div key={b.category} style={{
-            padding: '28px 24px',
-            borderRadius: 10,
-            background: 'rgba(255,255,255,0.025)',
-            border: '1px solid ' + b.accent + '40',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              position: 'absolute', top: -60, right: -60,
-              width: 180, height: 180, borderRadius: '50%',
-              background: 'radial-gradient(circle, ' + b.accent + '25, transparent 70%)',
-              pointerEvents: 'none',
-            }} />
-            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              <CategoryGlyph type={b.glyph} accent={b.accent} />
-            </div>
-            <div className="font-display" style={{
-              fontSize: 18, fontWeight: 800, color: 'var(--text)',
-              textAlign: 'center', marginBottom: 20,
-              letterSpacing: -0.3, lineHeight: 1.2,
-              position: 'relative',
-            }}>
-              {b.category}
-            </div>
-            <div style={{ position: 'relative' }}>
-              {b.placements.map((p, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '12px 0',
-                  borderTop: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <span style={{
-                    fontSize: 13, color: 'var(--text-muted)', fontWeight: 600,
-                  }}>
-                    {p.rank}
-                  </span>
-                  <span className="font-display" style={{
-                    fontSize: 22, fontWeight: 900, color: b.accent,
-                    letterSpacing: -0.5,
-                  }}>
-                    +{p.points} <span style={{ fontSize: 10, opacity: 0.7 }}>PTS</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Max possible callout */}
-      <div style={{
-        padding: '20px 28px',
-        borderRadius: 8,
-        background: 'linear-gradient(135deg, rgba(255,27,107,0.08), rgba(199,36,255,0.08))',
-        border: '1px solid rgba(255,27,107,0.3)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', gap: 16,
-        maxWidth: 1100,
-      }}>
-        <div>
-          <div className="font-mono" style={{
-            fontSize: 10, letterSpacing: 2.5, color: 'var(--brand)',
-            fontWeight: 700, marginBottom: 6,
-          }}>
-            MAXIMUM POSSIBLE
-          </div>
-          <div style={{ fontSize: 15, color: 'var(--text)' }}>
-            An Entertainment that wins all four categories earns the most points possible.
-          </div>
-        </div>
-        <div className="font-display" style={{
-          fontSize: 36, fontWeight: 900, letterSpacing: -1.5,
-          background: 'linear-gradient(90deg, #FF1B6B, #C724FF)',
-          WebkitBackgroundClip: 'text', backgroundClip: 'text',
-          WebkitTextFillColor: 'transparent', color: 'transparent',
-        }}>
-          100 PTS
-        </div>
-      </div>
-
-    </section>
-  );
-}
-
 function PrizeBreakdown() {
   const prizes = [
     {
-      title: 'OVERALL CHAMPION',
-      subtitle: 'Entertainment Division',
+      title: 'OPEN STAGE CHAMPION',
+      subtitle: 'DKC 2026',
       amount: '₱20,000',
       accent: '#FF1B6B',
       featured: true,
     },
     {
-      title: 'Battle of the Entertainments',
-      subtitle: 'Dance Cover Champion',
-      amount: '₱15,000',
+      title: 'First Runner-Up',
+      subtitle: 'Open Stage',
+      amount: '₱10,000',
       accent: '#C724FF',
     },
     {
-      title: 'Open Stage',
-      subtitle: 'Champion',
-      amount: '₱10,000',
-      accent: '#FF6FA8',
-    },
-    {
-      title: 'Fanchant Battle',
-      subtitle: 'Champion',
+      title: 'Second Runner-Up',
+      subtitle: 'Open Stage',
       amount: '₱5,000',
       accent: '#00E5FF',
-    },
-    {
-      title: 'Fanbooth Battle',
-      subtitle: 'Champion',
-      amount: '₱5,000',
-      accent: '#FF6FA8',
     },
   ];
 
@@ -4144,14 +3455,14 @@ function PrizeBreakdown() {
           fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1,
           margin: '0 0 20px', letterSpacing: -1.8, fontWeight: 800,
         }}>
-          ₱55,000 on the line.
+          ₱35,000 on the line.
         </h2>
         <p style={{
           fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 760,
         }}>
-          Five titles. Five cash prizes. The biggest prize pool Kreation Philippines has ever
-          had. Runners-up still earn points and get official recognition.
+          One stage. One champion. Three cash prizes for the top groups — plus all winners
+          get a free pass to Davao K-Pop Convention's official after-party.
         </p>
       </div>
 
@@ -4390,9 +3701,10 @@ function RegistrationForm({ event }) {
     });
   };
 
-  const isAffiliatedCategory = ['battle', 'fanchant', 'fanbooth'].includes(form.category);
-  const isDanceCategory = ['open-stage', 'battle'].includes(form.category);
-  const isFanCategory = ['fanchant', 'fanbooth'].includes(form.category);
+  // Only Open Stage remains. It is a dance category, not affiliated, not fan-based.
+  const isAffiliatedCategory = false;
+  const isDanceCategory = true;
+  const isFanCategory = false;
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -4621,7 +3933,7 @@ function RegistrationForm({ event }) {
                   background: 'rgba(0, 229, 255, 0.12)',
                   border: '1px solid rgba(0, 229, 255, 0.4)',
                   color: 'var(--accent)',
-                  fontFamily: 'Sora, sans-serif',
+                  fontFamily: 'JetBrains Mono, monospace',
                   fontSize: 11, fontWeight: 700, letterSpacing: 1.5,
                   cursor: 'pointer',
                 }}
@@ -4693,7 +4005,7 @@ function RegistrationForm({ event }) {
                     e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,27,107,0.4)';
                   }}>
                   GO TO PARTICIPANT PAYMENT
-                  <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 16 }}>{'\u2192'}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16 }}>{'\u2192'}</span>
                 </a>
               </div>
             </div>
@@ -4782,9 +4094,6 @@ function RegistrationForm({ event }) {
           >
             <option value="">Select a category</option>
             <option value="open-stage">Open Stage</option>
-            <option value="battle">Battle of the Entertainments</option>
-            <option value="fanchant">Fanchant Battle</option>
-            <option value="fanbooth">Fanbooth Battle</option>
           </select>
         </FormField>
 
@@ -4852,10 +4161,7 @@ function RegistrationForm({ event }) {
         <FormField
           label="NUMBER OF MEMBERS *"
           hint={
-            form.category === 'open-stage' ? 'Minimum 4 members' :
-            form.category === 'battle' ? 'Minimum 4 members' :
-            form.category === 'fanchant' ? 'Minimum 10 members' :
-            form.category === 'fanbooth' ? 'Exactly 3 members will staff the booth' :
+            form.category === 'open-stage' ? 'Minimum 4 members (or a soloist with at least 3 backup dancers)' :
             'How many members are in your group'
           }
         >
@@ -5261,7 +4567,7 @@ function TermsContent() {
     {
       number: '09',
       title: 'JUDGING AND DISQUALIFICATION',
-      body: 'All judging decisions are final and binding. Grounds for disqualification include, without limitation: failure to appear on stage when called, late arrival to the venue, unauthorized changes to music or lineup within seven (7) days of the event, costume malfunctions resulting in exposure, violations of the Code of Conduct, or any breach of these Terms. Disqualified groups forfeit eligibility for prizes, recognition, and point accumulation toward the Overall Champion title.',
+      body: 'All judging decisions are final and binding. Grounds for disqualification include, without limitation: failure to appear on stage when called, late arrival to the venue, unauthorized changes to music or lineup within seven (7) days of the event, costume malfunctions resulting in exposure, violations of the Code of Conduct, or any breach of these Terms. Disqualified groups forfeit eligibility for prizes and recognition.',
     },
     {
       number: '10',
@@ -5499,18 +4805,7 @@ function BanRevokeScreen({ onBackHome }) {
 
     setSubmitting(true);
     try {
-      // Generate the application id client-side so we can include it in the
-      // payload AND use it for the agreement PDF reference (BRA-XXXXXXXX).
-      // Mirrors the helper used for registrations elsewhere in this file.
-      const newAppId = (window.crypto && typeof window.crypto.randomUUID === 'function')
-        ? window.crypto.randomUUID()
-        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-          });
       const payload = {
-        id: newAppId,
         full_name: form.full_name.trim(),
         contact_phone: form.contact_phone.trim() || null,
         contact_email: form.contact_email.trim(),
@@ -5523,15 +4818,13 @@ function BanRevokeScreen({ onBackHome }) {
         agreed_to_conduct: true,
         agreed_at: new Date().toISOString(),
       };
-      // Insert only — no .select() after — so anon only needs INSERT
-      // privilege on this table (not SELECT). The payload already has the
-      // id we generated above, so the confirmation screen + PDF have
-      // everything they need without a read-back.
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from('ban_revoke_applications')
-        .insert(payload);
+        .insert(payload)
+        .select()
+        .single();
       if (insertError) throw insertError;
-      setSubmittedApp(payload);
+      setSubmittedApp(data || payload);
       setStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -5596,7 +4889,7 @@ function BanRevokeHero() {
         borderRadius: 4,
         fontSize: 10, fontWeight: 700, letterSpacing: 3,
         color: '#C724FF',
-        fontFamily: 'Sora, sans-serif',
+        fontFamily: 'JetBrains Mono, monospace',
         marginBottom: 28,
       }}>
         FOR PREVIOUSLY BANNED INDIVIDUALS & GROUPS
@@ -6458,16 +5751,14 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [evR, ttR, aR, psR, sR, takenR] = await Promise.all([
+        const [evR, ttR, aR, psR, sR, osR, oR] = await Promise.all([
           supabase.from('events').select('*').eq('is_active', true).limit(1).maybeSingle(),
           supabase.from('ticket_types').select('*').order('display_order'),
           supabase.from('add_ons').select('*').eq('is_active', true).order('display_order'),
           supabase.from('pickup_slots').select('*').eq('is_active', true).order('slot_date'),
           supabase.from('seats').select('*').order('row_label').order('seat_number'),
-          // Taken seats come from a SECURITY DEFINER function so anon never
-          // reads order_seats or orders directly. The function only returns
-          // seat_ids — no buyer_name, no order_id, no linkage to who has what.
-          supabase.rpc('get_taken_seat_ids')
+          supabase.from('order_seats').select('seat_id, orders!inner(status)'),
+          supabase.from('orders').select('id, status').in('status', ['awaiting_verification', 'confirmed', 'pending_payment'])
         ]);
         if (evR.error) throw evR.error;
         if (!evR.data) throw new Error('No active event configured yet.');
@@ -6482,8 +5773,19 @@ function App() {
         setPickupSlots(psR.data || []);
         setSeats(sR.data || []);
 
-        // takenR.data is [{ seat_id: 'uuid' }, ...] from the RPC.
-        const taken = new Set((takenR.data || []).map(r => r.seat_id));
+        // Build set of taken seat IDs (seats in active orders)
+        const activeOrderIds = new Set((oR.data || []).map(o => o.id));
+        const taken = new Set();
+        (osR.data || []).forEach(os => {
+          if (activeOrderIds.has(os.order_id)) taken.add(os.seat_id);
+          // Note: orders!inner join returns the join row; we check via active list above
+        });
+        // Fallback: use the inner-joined status field if provided
+        (osR.data || []).forEach(os => {
+          if (os.orders && ['awaiting_verification', 'confirmed', 'pending_payment'].includes(os.orders.status)) {
+            taken.add(os.seat_id);
+          }
+        });
         setTakenSeatIds(taken);
 
         setLoading(false);
@@ -6767,26 +6069,13 @@ async function submitOrder({
   if (upR.error) throw new Error('Receipt upload failed: ' + upR.error.message);
 
   // 2. Create order
-  // Generate id client-side so anon doesn't need to read sensitive columns
-  // back after insert. The DB trigger trg_set_order_number fills in
-  // order_number on BEFORE INSERT — we narrow .select() to that one field
-  // and rebuild a small order object from what we already know.
-  const orderId = (window.crypto && typeof window.crypto.randomUUID === 'function')
-    ? window.crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      });
   const primaryTicketTypeId = attendees[0] ? attendees[0].ticketTypeId : null;
-  const buyerEmail = buyer.email.trim().toLowerCase();
   const insOrder = await supabase.from('orders').insert({
-    id: orderId,
     event_id: event.id,
     ticket_type_id: primaryTicketTypeId,
-    pickup_slot_id: null,
+    pickup_slot_id: pickupSlotId,
     buyer_name: buyer.name.trim(),
-    buyer_email: buyerEmail,
+    buyer_email: buyer.email.trim().toLowerCase(),
     buyer_phone: buyer.phone.trim(),
     subtotal: totals.subtotal,
     add_on_total: totals.addOnTotal,
@@ -6796,14 +6085,9 @@ async function submitOrder({
     receipt_path: path,
     receipt_uploaded_at: new Date().toISOString(),
     status: 'awaiting_verification',
-  }).select('order_number').single();
+  }).select().single();
   if (insOrder.error) throw new Error('Order creation failed: ' + insOrder.error.message);
-  // Synthetic order object — only the fields the success screen reads.
-  const order = {
-    id: orderId,
-    order_number: insOrder.data.order_number,
-    buyer_email: buyerEmail,
-  };
+  const order = insOrder.data;
 
   // 3. Insert attendees
   const attendeeRows = attendees.map((a, i) => ({
@@ -7470,7 +6754,7 @@ function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees,
                 <span className="seat-mobile-aisle" style={{
                   width: 16, textAlign: 'center',
                   fontSize: 9, color: 'var(--text-soft)',
-                  fontFamily: 'Sora, sans-serif',
+                  fontFamily: 'JetBrains Mono, monospace',
                 }}>{'\u00b7'}</span>
                 <div style={{ display: 'flex', gap: 4 }} className="seat-mobile-row">
                   {rightBlock.map(renderSeat)}
@@ -7548,10 +6832,11 @@ function LegendDot({ color, gradient, label, border }) {
 }
 
 // ============================================================
-// DETAILS STEP (buyer contact info)
+// DETAILS STEP (pickup + buyer info)
 // ============================================================
 function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuyer, totals, onNext, onBack }) {
   const valid =
+    pickupSlotId &&
     buyer.name.trim().length >= 2 &&
     buyer.email.trim().includes('@') &&
     buyer.phone.trim().length >= 7;
@@ -7560,9 +6845,31 @@ function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuy
     <Card>
       <SectionTitle
         eyebrow="Step 4"
-        title="Your details"
-        subtitle="We'll send your ticket confirmation to your email."
+        title="Pickup & contact"
+        subtitle="When can you pick up your physical tickets? We'll also send confirmation to your email."
       />
+
+      <SubLabel iconName="calendar">PICKUP DATE</SubLabel>
+      <select value={pickupSlotId || ''} onChange={(e) => setPickupSlotId(e.target.value || null)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 18, boxSizing: 'border-box', appearance: 'none' }}>
+        <option value="">Choose a Friday...</option>
+        {pickupSlots.map(s => (
+          <option key={s.id} value={s.id}>
+            {formatDate(s.slot_date, { weekday: 'long', year: true })} · {formatTime(s.slot_start)} – {formatTime(s.slot_end)}
+          </option>
+        ))}
+      </select>
+      {pickupSlotId && (
+        <div style={{
+          padding: '10px 12px', background: 'rgba(0, 229, 255, 0.06)',
+          border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: 8,
+          fontSize: 12, color: 'var(--accent)', marginBottom: 22,
+          display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          <Icon name="pin" size={13} />
+          {pickupSlots.find(s => s.id === pickupSlotId)?.location}
+        </div>
+      )}
 
       <SubLabel iconName="user">YOUR NAME</SubLabel>
       <input type="text" value={buyer.name} onChange={(e) => setBuyer({ ...buyer, name: e.target.value })}
@@ -7849,7 +7156,7 @@ function DoneScreen({ order, event, onReturnHome }) {
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 22 }}>
-            Save your order number for the event. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
+            Save your order number for pickup. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
           </div>
           {onReturnHome && (
             <button onClick={onReturnHome} style={{
