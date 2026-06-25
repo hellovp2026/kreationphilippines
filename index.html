@@ -1144,10 +1144,11 @@ function EventLogoLockup() {
 function HomeCategoryMarquee() {
   const items = [
     'OPEN STAGE',
+    'K-CLASSICS',
     '₱35,000 PRIZE POOL',
     'AUGUST 22, 2026',
     'CAP GRAND AUDITORIUM',
-    'ONE CHAMPION',
+    'TWO CHAMPIONS',
   ];
   const allItems = [...items, ...items, ...items, ...items];
   return (
@@ -1302,10 +1303,18 @@ function HomeCategories() {
     {
       number: '01',
       name: 'Open Stage',
-      tagline: 'The main event. One champion takes the night.',
+      tagline: 'The flagship. One champion takes the night.',
       desc: "DKC 2026's headline competition. Cover groups go head to head on the CAP Grand Auditorium stage — three judges plus the crowd decide the winners. One group walks away the Open Stage Champion.",
       accent: '#FF1B6B',
       glyph: 'diamond',
+    },
+    {
+      number: '02',
+      name: 'K-Classics',
+      tagline: 'Throwback battle. 2016 and earlier only.',
+      desc: "The category you've been asking for. Cover groups perform to K-pop from 2016 and earlier — original soundtrack only, no intros or remixes. A tribute to the songs that started it all. Open to everyone, including groups competing in Open Stage.",
+      accent: '#C724FF',
+      glyph: 'crown',
     },
   ];
 
@@ -1332,7 +1341,7 @@ function HomeCategories() {
           fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
           margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
         }}>
-          Four official competitions.{' '}
+          Two ways to compete.{' '}
           <span style={{
             background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
             WebkitBackgroundClip: 'text',
@@ -1346,8 +1355,8 @@ function HomeCategories() {
           lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 640,
         }}>
-          Every Davao K-Pop Convention is built on four lanes of competition. Crews and fandoms
-          pick their lane, train all year for it, and bring it the night-of.
+          DKC 2026 has two ways to take the stage — Open Stage, our flagship competition, and
+          K-Classics, the throwback battle. Pick your category, train for it, and bring it the night-of.
         </p>
       </div>
 
@@ -2997,6 +3006,26 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
           'We\'ll post the final rankings after the event.',
         ]}
       />
+      <CategoryRules
+        id="k-classics"
+        number="02"
+        name="K-Classics"
+        accent="#C724FF"
+        tagline="The throwback battle. 2016 and earlier."
+        eligibility="A tribute to the songs that started it all. Cover groups perform to K-pop released in 2016 or earlier. Open to everyone — including groups already competing in Open Stage. One group takes the K-Classics Champion title."
+        rules={[
+          'You need at least 4 people in your group. Solo artists can join too, but you need at least 3 backup dancers (4 people total).',
+          'Your music must be from 2016 or earlier.',
+          'Use the original soundtrack only. No intros, no remixes — the music should come straight from the original track.',
+          'Groups from the other category are welcome to join K-Classics. But no group-hopping within K-Classics itself — one entry per group here.',
+          'You have to show up for orientation, blockings, and rehearsals, and pay your registration fee by the deadline.',
+          'Get to the venue on time. If your group is called and you\'re not on stage, you\'re out.',
+          'If a costume slips and shows too much skin, you lose points. Do dress rehearsals to catch costume problems early.',
+          'Props that are dangerous or that could delay the program are not allowed.',
+          'Groups that back out after the participant list is posted still have to pay the registration fee. This keeps the cash prizes stable and keeps things fair for everyone who committed — so make sure you\'re committed before you submit.',
+          'The judges\' decision is final and cannot be appealed.',
+        ]}
+      />
       <JudgingCriteria />
       <PrizeBreakdown />
       <RegistrationPolicy />
@@ -3119,6 +3148,7 @@ function CompeteHero() {
 function CompeteQuickNav() {
   const links = [
     { href: '#open-stage', label: 'Open Stage', accent: '#FF1B6B' },
+    { href: '#k-classics', label: 'K-Classics', accent: '#C724FF' },
     { href: '#judging', label: 'Judging', accent: '#FFB84D' },
     { href: '#prizes', label: 'Prizes', accent: '#FF6FA8' },
     { href: '#register', label: 'Register', accent: '#FF1B6B' },
@@ -3296,7 +3326,7 @@ function JudgingCriteria() {
       {/* Dance categories criteria */}
       <CriteriaCard
         title="Dance Categories"
-        subtitle="Open Stage"
+        subtitle="Open Stage · K-Classics"
         accent="#C724FF"
         criteria={[
           {
@@ -3416,22 +3446,17 @@ function PrizeBreakdown() {
   const prizes = [
     {
       title: 'OPEN STAGE CHAMPION',
-      subtitle: 'DKC 2026',
-      amount: '₱20,000',
+      subtitle: 'The flagship category',
+      amount: '₱25,000',
       accent: '#FF1B6B',
       featured: true,
     },
     {
-      title: 'First Runner-Up',
-      subtitle: 'Open Stage',
+      title: 'K-CLASSICS CHAMPION',
+      subtitle: 'Throwback category · 2016 & earlier',
       amount: '₱10,000',
       accent: '#C724FF',
-    },
-    {
-      title: 'Second Runner-Up',
-      subtitle: 'Open Stage',
-      amount: '₱5,000',
-      accent: '#00E5FF',
+      featured: true,
     },
   ];
 
@@ -3461,8 +3486,8 @@ function PrizeBreakdown() {
           fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 760,
         }}>
-          One stage. One champion. Three cash prizes for the top groups — plus all winners
-          get a free pass to Davao K-Pop Convention's official after-party.
+          Two categories. Two champions. Open Stage takes ₱25,000, K-Classics takes ₱10,000 —
+          and both winners get a free pass to Davao K-Pop Convention's official after-party.
         </p>
       </div>
 
@@ -4094,6 +4119,7 @@ function RegistrationForm({ event }) {
           >
             <option value="">Select a category</option>
             <option value="open-stage">Open Stage</option>
+            <option value="k-classics">K-Classics</option>
           </select>
         </FormField>
 
@@ -4161,7 +4187,7 @@ function RegistrationForm({ event }) {
         <FormField
           label="NUMBER OF MEMBERS *"
           hint={
-            form.category === 'open-stage' ? 'Minimum 4 members (or a soloist with at least 3 backup dancers)' :
+            (form.category === 'open-stage' || form.category === 'k-classics') ? 'Minimum 4 members (or a soloist with at least 3 backup dancers)' :
             'How many members are in your group'
           }
         >
