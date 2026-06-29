@@ -433,12 +433,14 @@ const StatusBadge = ({ status }) => {
 // Maps category slug → human-readable label
 const CATEGORY_LABELS = {
   'open-stage': 'Open Stage',
+  'k-classics': 'K-Classics',
   'battle': 'Battle of the Entertainments',
   'fanchant': 'Fanchant Battle',
   'fanbooth': 'Fanbooth Battle',
 };
 const CATEGORY_COLORS = {
   'open-stage': '#FF1B6B',
+  'k-classics': '#C724FF',
   'battle': '#C724FF',
   'fanchant': '#00E5FF',
   'fanbooth': '#FF6FA8',
@@ -454,7 +456,7 @@ function applyTemplate(text, data) {
 
 // Build context object for registration variables
 function buildRegistrationContext(reg, settings) {
-  const isDanceCategory = reg.category === 'open-stage' || reg.category === 'battle';
+  const isDanceCategory = reg.category === 'open-stage' || reg.category === 'k-classics' || reg.category === 'battle';
   const fee = isDanceCategory ? (reg.member_count || 0) * 300 : 0;
   const categoryLabel = CATEGORY_LABELS[reg.category] || reg.category;
   const gc = (settings && settings.event_gc_link && settings.event_gc_link.trim())
@@ -480,7 +482,7 @@ function buildRegistrationContext(reg, settings) {
                'Deadline: ' + ticketSendDate;
     stepOne = 'Send proof of payment by replying to this email.';
   } else {
-    feeBlock = 'PARTICIPANT TICKETS\nMembers of Fanchant/Fanbooth do not pay the \u20B1300 participant fee.\nEach member needs a Regular audience ticket (\u20B1230) to enter the venue.\nTickets: https://kreationphilippines.vercel.app';
+    feeBlock = 'PARTICIPANT TICKETS\nThis category does not require the \u20B1300 participant fee.\nEach member needs a Regular audience ticket (\u20B1230) to enter the venue.\nTickets: https://kreationphilippines.vercel.app';
     stepOne = 'Each member buys a \u20B1230 audience ticket via the site.';
   }
 
@@ -622,7 +624,7 @@ function buildPerformerTicketsMailto(reg, performerTickets, settings, template) 
 const REGISTRATION_TEMPLATE_VARS = [
   { key: 'leader_name', desc: 'Name of the group leader' },
   { key: 'group_name', desc: 'Name of the registered group' },
-  { key: 'category_label', desc: 'Human-readable category name (e.g. "Battle of the Entertainments")' },
+  { key: 'category_label', desc: 'Human-readable category name (e.g. "Open Stage")' },
   { key: 'member_count', desc: 'Number of members in the group' },
   { key: 'affiliated_line', desc: 'Single line showing the affiliated Entertainment (blank if none)' },
   { key: 'song_idol_line', desc: 'Single line showing song/artist (dance) or idol group (fan)' },
@@ -1945,8 +1947,11 @@ function Dashboard({ session, adminRecord }) {
   }, [registrations, tickets]);
 
   const regCategoryCounts = useMemo(() => {
-    const c = { 'open-stage': 0, 'battle': 0, 'fanchant': 0, 'fanbooth': 0 };
-    registrations.forEach((r) => { if (c[r.category] !== undefined) c[r.category]++; });
+    const c = { 'open-stage': 0, 'k-classics': 0, 'battle': 0, 'fanchant': 0, 'fanbooth': 0 };
+    registrations.forEach((r) => {
+      if (r.status === 'withdrawn' || r.status === 'rejected') return;
+      if (c[r.category] !== undefined) c[r.category]++;
+    });
     return c;
   }, [registrations]);
 
@@ -1969,6 +1974,33 @@ function Dashboard({ session, adminRecord }) {
       resource_type: 'registration', resource_id: id,
     });
     showToast('Registration marked ' + newStatus);
+    fetchRegistrations();
+  }, [fetchRegistrations, showToast, session]);
+
+  // Transfer a BOE entry to a live category (Open Stage / K-Classics). Status unchanged.
+  const transferRegCategory = useCallback(async (id, newCategory) => {
+    const res = await supabase.from('registrations').update({ category: newCategory }).eq('id', id);
+    if (res.error) { showToast('Transfer failed: ' + res.error.message, 'warning'); return; }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'registration_category_transferred',
+      resource_type: 'registration', resource_id: id,
+      details: { new_category: newCategory },
+    });
+    showToast('Transferred to ' + (CATEGORY_LABELS[newCategory] || newCategory));
+    fetchRegistrations();
+  }, [fetchRegistrations, showToast, session]);
+
+  // Soft-remove: mark as withdrawn (kept in DB, hidden from active views).
+  const removeRegistration = useCallback(async (id) => {
+    const res = await supabase.from('registrations').update({ status: 'withdrawn' }).eq('id', id);
+    if (res.error) { showToast('Remove failed: ' + res.error.message, 'warning'); return; }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'registration_withdrawn',
+      resource_type: 'registration', resource_id: id,
+    });
+    showToast('Entry removed (moved to Withdrawn)');
     fetchRegistrations();
   }, [fetchRegistrations, showToast, session]);
 
@@ -3009,7 +3041,7 @@ function Dashboard({ session, adminRecord }) {
 
     const nonDropped = mems.filter((m) => m.payment_status !== 'dropped');
     const allPaid = nonDropped.length > 0 &&
-                    nonDropped.every((m) => m.payment_status === 'paid');
+                    nonDropped.every((m) => m.payment_status === 'paid' || m.payment_status === 'waived_overlap');
 
     const { data: reg } = await supabase
       .from('registrations')
@@ -3115,6 +3147,32 @@ function Dashboard({ session, adminRecord }) {
     await maybeAutoFlipRegistrationStatus(member.registration_id);
     return true;
   }, [session, showToast, fetchRegistrations, maybeAutoFlipRegistrationStatus]);
+
+  const handleWaiveMember = useCallback(async (member) => {
+    const upd = await supabase.from('registration_members').update({
+      payment_status: 'waived_overlap',
+      paid_at: new Date().toISOString(),
+      notes: 'Fee waived — already paid via their other category group',
+    }).eq('id', member.id);
+    if (upd.error) {
+      showToast('Waive failed: ' + upd.error.message, 'warning');
+      return false;
+    }
+
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'member_fee_waived',
+      resource_type: 'registration_member',
+      resource_id: member.id,
+      details: { name: member.member_name, reason: 'overlap_other_category' },
+    });
+
+    showToast(member.member_name + ' fee waived (paid via other category)');
+    fetchRegistrations();
+    await maybeAutoFlipRegistrationStatus(member.registration_id);
+    return true;
+  }, [session, showToast, fetchRegistrations, maybeAutoFlipRegistrationStatus]);
+
 
   const handleAddSubstitute = useCallback(async (registrationId, memberName, memberAge, inheritFromMember) => {
     // Create new member, optionally inheriting payment status from dropped member
@@ -3608,6 +3666,8 @@ function Dashboard({ session, adminRecord }) {
         regCategoryCounts={regCategoryCounts}
         selectedReg={selectedReg}
         onUpdateStatus={updateRegStatus}
+        onTransferCategory={transferRegCategory}
+        onRemoveRegistration={removeRegistration}
         onSaveNotes={saveRegNotes}
         onMarkConfirmationSent={markConfirmationSent}
         onUnmarkConfirmationSent={unmarkConfirmationSent}
@@ -3623,6 +3683,7 @@ function Dashboard({ session, adminRecord }) {
         onDropMember={handleDropMember}
         onAddSubstitute={handleAddSubstitute}
         onMarkMemberPaid={handleMarkMemberPaid}
+        onWaiveMember={handleWaiveMember}
         onRenameMember={handleRenameMember}
         onGeneratePerformerTickets={handleGeneratePerformerTickets}
       />
@@ -4747,12 +4808,12 @@ function RegistrationsView({
   regCategoryFilter, setRegCategoryFilter,
   regSelectedId, setRegSelectedId,
   regCounts, readyToIssueCount, regCategoryCounts,
-  selectedReg, onUpdateStatus, onSaveNotes,
+  selectedReg, onUpdateStatus, onTransferCategory, onRemoveRegistration, onSaveNotes,
   onMarkConfirmationSent, onUnmarkConfirmationSent,
   onExportCSV, emailTemplate, performerTicketsTemplate, settings, onEditTemplate,
   bulkSelected, setBulkSelected,
   onVerifyPayment, onDropMember, onAddSubstitute,
-  onMarkMemberPaid, onRenameMember, onGeneratePerformerTickets,
+  onMarkMemberPaid, onWaiveMember, onRenameMember, onGeneratePerformerTickets,
   tickets,
 }) {
   // Bulk selection helpers
@@ -4905,9 +4966,7 @@ function RegistrationsView({
             {[
               { key: 'all', label: 'All', accent: '#FFFFFF' },
               { key: 'open-stage', label: 'Open Stage', accent: '#FF1B6B' },
-              { key: 'battle', label: 'Battle', accent: '#C724FF' },
-              { key: 'fanchant', label: 'Fanchant', accent: '#00E5FF' },
-              { key: 'fanbooth', label: 'Fanbooth', accent: '#FF6FA8' },
+              { key: 'k-classics', label: 'K-Classics', accent: '#C724FF' },
             ].map((c) => {
               const isActive = regCategoryFilter === c.key;
               const catCount = c.key === 'all' ? registrations.length : (regCategoryCounts[c.key] || 0);
@@ -5010,6 +5069,8 @@ function RegistrationsView({
             registration={selectedReg}
             onClose={() => setRegSelectedId(null)}
             onUpdateStatus={onUpdateStatus}
+            onTransferCategory={onTransferCategory}
+            onRemoveRegistration={onRemoveRegistration}
             onSaveNotes={onSaveNotes}
             onMarkConfirmationSent={onMarkConfirmationSent}
             onUnmarkConfirmationSent={onUnmarkConfirmationSent}
@@ -5020,6 +5081,7 @@ function RegistrationsView({
             onDropMember={onDropMember}
             onAddSubstitute={onAddSubstitute}
             onMarkMemberPaid={onMarkMemberPaid}
+            onWaiveMember={onWaiveMember}
             onRenameMember={onRenameMember}
             onGeneratePerformerTickets={onGeneratePerformerTickets}
             registrationTickets={(tickets || []).filter((t) =>
@@ -5173,11 +5235,11 @@ function RegistrationRow({ registration: r, selected, onClick, bulkChecked, onTo
   );
 }
 
-function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onSaveNotes,
+function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onTransferCategory, onRemoveRegistration, onSaveNotes,
                                     onMarkConfirmationSent, onUnmarkConfirmationSent,
                                     emailTemplate, performerTicketsTemplate, settings,
                                     onVerifyPayment, onDropMember, onAddSubstitute,
-                                    onMarkMemberPaid, onRenameMember, onGeneratePerformerTickets,
+                                    onMarkMemberPaid, onWaiveMember, onRenameMember, onGeneratePerformerTickets,
                                     registrationTickets }) {
   const [adminNotes, setAdminNotes] = useState(r.admin_notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
@@ -5323,6 +5385,7 @@ function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onS
           onDropMember={onDropMember}
           onAddSubstitute={onAddSubstitute}
           onMarkMemberPaid={onMarkMemberPaid}
+          onWaiveMember={onWaiveMember}
           onRenameMember={onRenameMember}
           onGeneratePerformerTickets={onGeneratePerformerTickets}
         />
@@ -5570,6 +5633,40 @@ function RegistrationDetailPanel({ registration: r, onClose, onUpdateStatus, onS
               }} />
           )}
         </div>
+
+        {['battle', 'fanchant', 'fanbooth'].includes(r.category) && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{
+              fontSize: 10, letterSpacing: 1.5, color: '#FFB84D',
+              fontWeight: 700, marginBottom: 4,
+            }}>
+              CANCELLED CATEGORY — MOVE OR REMOVE →
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginBottom: 10 }}>
+              This entry is in a category that's no longer running. Move it to a live category, or remove it.
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <RegActionBtn label="→ Open Stage" icon="check" color="#FF1B6B"
+                onClick={() => {
+                  if (window.confirm('Transfer ' + (r.group_name || 'this group') + ' to OPEN STAGE? Their status and members stay the same — only the category changes.')) {
+                    onTransferCategory(r.id, 'open-stage');
+                  }
+                }} />
+              <RegActionBtn label="→ K-Classics" icon="check" color="#C724FF"
+                onClick={() => {
+                  if (window.confirm('Transfer ' + (r.group_name || 'this group') + ' to K-CLASSICS? Their status and members stay the same — only the category changes.')) {
+                    onTransferCategory(r.id, 'k-classics');
+                  }
+                }} />
+              <RegActionBtn label="Remove entry" icon="x" color="#FF1744"
+                onClick={() => {
+                  if (window.confirm('Remove ' + (r.group_name || 'this group') + '?\n\nThis moves them to the Withdrawn tab and hides them from active lists and the scanner. The data is kept and can be restored later — nothing is permanently deleted.')) {
+                    onRemoveRegistration(r.id);
+                  }
+                }} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -6692,7 +6789,7 @@ function InsightsPanel({ orders, registrations, applications, tickets, grossInco
           tone: 'info',
           icon: 'sparkles',
           title: 'Most popular: ' + (CATEGORY_LABELS[topCat[0]] || topCat[0]),
-          body: topCat[1] + ' entries so far. ' + (topCat[0] === 'battle' ? 'Battle is the headline competition.' : ''),
+          body: topCat[1] + ' entries so far. ' + (topCat[0] === 'open-stage' ? 'Open Stage is the flagship competition.' : ''),
         });
       }
     }
@@ -8554,7 +8651,7 @@ function SettingsTemplatePane({ kindDef, template, settings, onSaveTemplate }) {
   } : kindDef.key === 'performer_tickets_sent' ? {
     leader_name: 'Anna Cruz',
     group_name: 'NYX PH',
-    category_label: 'Battle of the Entertainments',
+    category_label: 'Open Stage',
     member_count: 6,
     ticket_summary: '\u2022 KP-P-00214 \u2014 Anna Cruz\n\u2022 KP-P-00215 \u2014 Joy Park\n\u2022 KP-P-00216 \u2014 Min Kang',
     ticket_count: 6,
@@ -8563,7 +8660,7 @@ function SettingsTemplatePane({ kindDef, template, settings, onSaveTemplate }) {
   } : {
     leader_name: 'Anna Cruz',
     group_name: 'NYX PH',
-    category_label: 'Battle of the Entertainments',
+    category_label: 'Open Stage',
     member_count: 6,
     affiliated_line: 'Affiliated Entertainment: KAYA Entertainment\n',
     song_idol_line: 'Song/Artist: "Maestro" - SEVENTEEN\n',
@@ -9563,7 +9660,7 @@ function EmailTemplateEditor({ template, settings, onClose, onSaveTemplate, onSa
   const sampleCtx = {
     leader_name: 'Anna Cruz',
     group_name: 'NYX PH',
-    category_label: 'Battle of the Entertainments',
+    category_label: 'Open Stage',
     member_count: 6,
     affiliated_line: 'Affiliated Entertainment: KAYA Entertainment\n',
     song_idol_line: 'Song/Artist: "Maestro" - SEVENTEEN\n',
@@ -10784,7 +10881,7 @@ function DisputeRow({ item: it, onOpen }) {
 // trigger performer ticket generation when all paid.
 // ============================================================
 function PerformerManagementSection({ registration, onVerifyPayment, onDropMember,
-                                      onAddSubstitute, onMarkMemberPaid, onRenameMember,
+                                      onAddSubstitute, onMarkMemberPaid, onWaiveMember, onRenameMember,
                                       onGeneratePerformerTickets }) {
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -10863,6 +10960,8 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
   }, [registration.id, refresh]);
 
   const nonDropped = members.filter((m) => m.payment_status !== 'dropped');
+  const waivedMembers = nonDropped.filter((m) => m.payment_status === 'waived_overlap');
+  const billable = nonDropped.filter((m) => m.payment_status !== 'waived_overlap');
   const paidCount = nonDropped.filter((m) => m.payment_status === 'paid').length;
   const unpaidCount = nonDropped.filter((m) => m.payment_status === 'unpaid').length;
   const allPaid = unpaidCount === 0 && nonDropped.length > 0;
@@ -10941,6 +11040,13 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
     setBusy(false);
   };
 
+  const handleWaive = async (member) => {
+    if (!window.confirm('Waive ' + member.member_name + "'s ₱300 fee?\n\nUse this ONLY if you've confirmed they already paid as a participant in their OTHER category group. They will NOT be charged here and no extra ticket is issued — their existing participant ticket covers them.")) return;
+    setBusy(true);
+    await onWaiveMember(member);
+    setBusy(false);
+  };
+
   // Inline rename handlers
   const startEdit = (member) => {
     setEditingMemberId(member.id);
@@ -10989,7 +11095,7 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
               {allPaid ? 'ALL MEMBERS PAID' : (paidCount + ' of ' + nonDropped.length + ' members paid')}
             </span>
             <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              {peso(totalCollected)} <span style={{ color: 'var(--text-soft)', fontSize: 12 }}>/ {peso(nonDropped.length * 300)}</span>
+              {peso(totalCollected)} <span style={{ color: 'var(--text-soft)', fontSize: 12 }}>/ {peso(billable.length * 300)}</span>
             </span>
           </div>
           <div style={{
@@ -11076,6 +11182,7 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
           {members.map((m) => {
             const isPaid = m.payment_status === 'paid';
             const isDropped = m.payment_status === 'dropped';
+            const isWaived = m.payment_status === 'waived_overlap';
             const isEditing = editingMemberId === m.id;
             return (
               <div key={m.id} style={{
@@ -11191,6 +11298,21 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
                           ↻ Transferred to {memberTickets[m.id].attendee_name}
                         </div>
                       )}
+                      {m.claims_other_category && !isWaived && (
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          marginTop: 6,
+                          padding: '3px 8px', borderRadius: 4,
+                          background: 'rgba(255, 184, 77, 0.10)',
+                          border: '1px solid rgba(255, 184, 77, 0.4)',
+                          fontSize: 11, fontWeight: 600,
+                          color: '#FFB84D',
+                          fontFamily: 'JetBrains Mono, monospace',
+                          letterSpacing: 0.3,
+                        }}>
+                          ⚠ Claims overlap{m.other_category_group ? ': ' + m.other_category_group : ''} — verify before charging
+                        </div>
+                      )}
                       <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {m.member_age && <span>Age {m.member_age}</span>}
                         {isPaid && m.paid_at && <span>· Paid {formatDT(m.paid_at)}</span>}
@@ -11209,6 +11331,14 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
                           fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
                           color: '#00E676',
                         }}>PAID</span>
+                      ) : isWaived ? (
+                        <span style={{
+                          padding: '4px 10px', borderRadius: 4,
+                          background: 'rgba(199,36,255,0.15)',
+                          border: '1px solid rgba(199,36,255,0.4)',
+                          fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                          color: '#D88BFF',
+                        }} title="Fee waived — already paid via their other category group">WAIVED · OVERLAP</span>
                       ) : isDropped ? (
                         <span style={{
                           padding: '4px 10px', borderRadius: 4,
@@ -11218,17 +11348,31 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
                           color: 'var(--text-soft)',
                         }}>DROPPED</span>
                       ) : (
-                        <button onClick={() => handleMarkPaid(m)} disabled={busy || hasTickets}
-                          style={{
-                            padding: '6px 12px', borderRadius: 6,
-                            background: 'rgba(0,229,255,0.08)',
-                            border: '1px solid rgba(0,229,255,0.3)',
-                            color: '#00E5FF', cursor: busy ? 'wait' : 'pointer',
-                            fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-                            fontFamily: 'inherit',
-                          }}>
-                          MARK PAID (CASH)
-                        </button>
+                        <React.Fragment>
+                          <button onClick={() => handleMarkPaid(m)} disabled={busy || hasTickets}
+                            style={{
+                              padding: '6px 12px', borderRadius: 6,
+                              background: 'rgba(0,229,255,0.08)',
+                              border: '1px solid rgba(0,229,255,0.3)',
+                              color: '#00E5FF', cursor: busy ? 'wait' : 'pointer',
+                              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                              fontFamily: 'inherit',
+                            }}>
+                            MARK PAID (CASH)
+                          </button>
+                          <button onClick={() => handleWaive(m)} disabled={busy || hasTickets}
+                            style={{
+                              padding: '6px 12px', borderRadius: 6,
+                              background: 'rgba(199,36,255,0.08)',
+                              border: '1px solid rgba(199,36,255,0.3)',
+                              color: '#D88BFF', cursor: busy ? 'wait' : 'pointer',
+                              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                              fontFamily: 'inherit',
+                            }}
+                            title="Waive fee — use only if confirmed they already paid in their other category group">
+                            WAIVE (OVERLAP)
+                          </button>
+                        </React.Fragment>
                       )}
                       {!isDropped && !hasTickets && (
                         <React.Fragment>

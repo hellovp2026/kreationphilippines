@@ -963,7 +963,8 @@ function GroupsTab() {
     const [regsRes, ticketsRes, membersRes] = await Promise.all([
       // Exclude only truly-dead registrations. Actual status values used in
       // the system: 'pending', 'meeting_scheduled', 'approved', 'denied',
-      // 'confirmed', 'paid'. Show everything except 'denied'.
+      // 'confirmed', 'paid', 'withdrawn'. Hide 'denied' here; 'withdrawn'
+      // is filtered out in groupStats below (plain JS, safest).
       supabase.from('registrations').select('*').not('status', 'eq', 'denied'),
       supabase.from('tickets').select('*').eq('tier_code', 'P'),
       supabase.from('registration_members').select('*'),
@@ -1001,7 +1002,9 @@ function GroupsTab() {
     const ticketsById = {};
     tickets.forEach((t) => { ticketsById[t.id] = t; });
 
-    return registrations.map((reg) => {
+    return registrations
+      .filter((reg) => reg.status !== 'withdrawn')
+      .map((reg) => {
       const groupMembers = members
         .filter((m) => m.registration_id === reg.id && m.payment_status !== 'dropped')
         .sort((a, b) => (a.member_order || 0) - (b.member_order || 0));
@@ -1087,10 +1090,8 @@ function GroupsTab() {
           </select>
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ flex: 1 }}>
             <option value="all">All categories</option>
-            <option value="open">Open Stage</option>
-            <option value="boe">BOE</option>
-            <option value="fanchant">Fanchant</option>
-            <option value="fanbooth">Fanbooth</option>
+            <option value="open-stage">Open Stage</option>
+            <option value="k-classics">K-Classics</option>
           </select>
         </div>
       </div>
@@ -1162,7 +1163,7 @@ function GroupCard({ stats, expanded, onToggle }) {
             {reg.group_name || '\u2014'}
           </div>
           <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-soft)', marginTop: 2 }}>
-            {(reg.category || 'Uncategorized').toUpperCase()}{' \u00b7 '}{reg.registration_code || '\u2014'}
+            {(reg.category || 'Uncategorized').replace(/-/g, ' ').toUpperCase()}{' \u00b7 '}{reg.registration_code || '\u2014'}
           </div>
         </div>
         <div className="font-mono" style={{
