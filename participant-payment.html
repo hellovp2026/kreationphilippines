@@ -147,6 +147,7 @@ const STATUS_LABEL = {
 
 const CATEGORY_LABEL = {
   'open-stage': 'Open Stage',
+  'k-classics': 'K-Classics',
   'battle': 'Battle of the Entertainments',
   'fanchant': 'Fanchant Battle',
   'fanbooth': 'Fanbooth Battle',
@@ -238,7 +239,7 @@ function App() {
         return;
       }
 
-      const allPaid = memData.every((m) => m.payment_status === 'paid');
+      const allPaid = memData.every((m) => m.payment_status === 'paid' || m.payment_status === 'waived_overlap');
       if (allPaid) {
         setLookupError('All members of \u201C' + reg.group_name + '\u201D are already paid. Nothing to do here!');
         return;
@@ -577,17 +578,19 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
         {members.map((m) => {
           const isPaid = m.payment_status === 'paid';
+          const isWaived = m.payment_status === 'waived_overlap';
+          const isSettled = isPaid || isWaived;
           const isSelected = !!selectedMemberIds[m.id];
           return (
             <div
               key={m.id}
               className={'member-card ' +
-                (isPaid ? 'member-card-disabled' : '') + ' ' +
-                (isSelected && !isPaid ? 'member-card-selected' : '')}
-              onClick={() => { if (!isPaid) onToggleMember(m.id); }}
+                (isSettled ? 'member-card-disabled' : '') + ' ' +
+                (isSelected && !isSettled ? 'member-card-selected' : '')}
+              onClick={() => { if (!isSettled) onToggleMember(m.id); }}
             >
-              <div className={'checkbox-square ' + (isPaid ? 'disabled' : (isSelected ? 'checked' : ''))}>
-                {(isSelected || isPaid) && (
+              <div className={'checkbox-square ' + (isSettled ? 'disabled' : (isSelected ? 'checked' : ''))}>
+                {(isSelected || isSettled) && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
@@ -610,6 +613,18 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
                   whiteSpace: 'nowrap',
                 }}>
                   PAID
+                </span>
+              ) : isWaived ? (
+                <span style={{
+                  padding: '3px 9px',
+                  borderRadius: 6,
+                  background: 'rgba(199, 36, 255, 0.15)',
+                  border: '1px solid rgba(199, 36, 255, 0.4)',
+                  fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                  color: '#D88BFF',
+                  whiteSpace: 'nowrap',
+                }} title="Fee already covered via this member's other category group">
+                  FEE COVERED
                 </span>
               ) : (
                 <span className="font-mono" style={{
