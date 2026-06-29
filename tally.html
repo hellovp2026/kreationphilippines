@@ -85,18 +85,6 @@ const { useState, useEffect, useMemo } = React;
 // mechanics page. Do not change without changing both.
 // ============================================================
 const CATEGORIES = {
-  battle: {
-    label: 'Battle of the Entertainments',
-    short: 'Battle',
-    accent: '#C724FF',
-    criteria: [
-      { key: 'crit_a', name: 'Execution', max: 30 },
-      { key: 'crit_b', name: 'Synchronization', max: 40 },
-      { key: 'crit_c', name: 'Idol Factor & Stage Presence', max: 30 },
-    ],
-    points: [40, 30, 20],
-    hasEntertainment: true,
-  },
   open_stage: {
     label: 'Open Stage',
     short: 'Open Stage',
@@ -106,39 +94,24 @@ const CATEGORIES = {
       { key: 'crit_b', name: 'Synchronization', max: 40 },
       { key: 'crit_c', name: 'Idol Factor & Stage Presence', max: 30 },
     ],
-    points: null, // own title, no Overall Champion points
+    points: null, // own title, champion only
     hasEntertainment: false,
   },
-  fanchant: {
-    label: 'Fanchant Battle',
-    short: 'Fanchant',
-    accent: '#00E5FF',
+  k_classics: {
+    label: 'K-Classics',
+    short: 'K-Classics',
+    accent: '#C724FF',
     criteria: [
-      { key: 'crit_a', name: 'Sync & Timing', max: 40 },
-      { key: 'crit_b', name: 'Execution & Volume', max: 30 },
-      { key: 'crit_c', name: 'Fandom Spirit', max: 30 },
+      { key: 'crit_a', name: 'Execution', max: 30 },
+      { key: 'crit_b', name: 'Synchronization', max: 40 },
+      { key: 'crit_c', name: 'Idol Factor & Stage Presence', max: 30 },
     ],
-    points: [25, 15, 10],
-    hasEntertainment: true,
-  },
-  fanbooth: {
-    label: 'Fanbooth Battle',
-    short: 'Fanbooth',
-    accent: '#FF6FA8',
-    criteria: [
-      { key: 'crit_a', name: 'Visual Design', max: 40 },
-      { key: 'crit_b', name: 'Fan Experience', max: 30 },
-      { key: 'crit_c', name: 'Fandom Authenticity', max: 30 },
-    ],
-    points: [25, 15, 10],
-    hasEntertainment: true,
+    points: null, // own title, champion only
+    hasEntertainment: false,
   },
 };
-const LIVE_VOTING_POINTS = [10, 6, 3];
 const JUDGE_COUNT = 3;
 const PLACEMENT_LABELS = ['Champion', '1st Runner-up', '2nd Runner-up'];
-// Tiebreaker order for OVERALL standings (internal, not shown publicly):
-const TIEBREAK_ORDER = ['battle', 'fanchant', 'fanbooth', 'live_voting'];
 
 // ============================================================
 // PURE MATH — mirrored in the offline test harness.
@@ -192,61 +165,6 @@ function rankCategory(catKey, entries, scores) {
     }
   }
   return { ranked: ranked, incomplete: incomplete, dq: dq };
-}
-
-// Placements stack: each placing GROUP's points credit its Entertainment.
-// Returns array of { placement (0-based), entry, points } for the top 3 ranks.
-function categoryPlacements(catKey, entries, scores) {
-  const cfg = CATEGORIES[catKey];
-  if (!cfg.points) return [];
-  const r = rankCategory(catKey, entries, scores).ranked;
-  const out = [];
-  for (let i = 0; i < r.length && i < 3; i++) {
-    out.push({ placement: i, entry: r[i].entry, points: cfg.points[i], tied: r[i].tied });
-  }
-  return out;
-}
-
-// Overall standings across battle/fanchant/fanbooth + live voting.
-function computeStandings(entertainments, entries, scores, liveVoting) {
-  const rows = {};
-  entertainments.forEach(function(ent) {
-    rows[ent.id] = {
-      ent: ent,
-      points: { battle: 0, fanchant: 0, fanbooth: 0, live_voting: 0 },
-      bestPlacement: { battle: Infinity, fanchant: Infinity, fanbooth: Infinity, live_voting: Infinity },
-      total: 0,
-    };
-  });
-  ['battle', 'fanchant', 'fanbooth'].forEach(function(cat) {
-    categoryPlacements(cat, entries, scores).forEach(function(p) {
-      const row = rows[p.entry.entertainment_id];
-      if (!row) return;
-      row.points[cat] += p.points;
-      if (p.placement + 1 < row.bestPlacement[cat]) row.bestPlacement[cat] = p.placement + 1;
-    });
-  });
-  (liveVoting || []).forEach(function(lv) {
-    const row = rows[lv.entertainment_id];
-    if (!row) return;
-    row.points.live_voting += LIVE_VOTING_POINTS[lv.placement - 1];
-    if (lv.placement < row.bestPlacement.live_voting) row.bestPlacement.live_voting = lv.placement;
-  });
-  const list = Object.values(rows);
-  list.forEach(function(r) {
-    r.total = r.points.battle + r.points.fanchant + r.points.fanbooth + r.points.live_voting;
-  });
-  list.sort(function(a, b) {
-    if (b.total !== a.total) return b.total - a.total;
-    for (let i = 0; i < TIEBREAK_ORDER.length; i++) {
-      const k = TIEBREAK_ORDER[i];
-      if (a.bestPlacement[k] !== b.bestPlacement[k]) {
-        return a.bestPlacement[k] - b.bestPlacement[k];
-      }
-    }
-    return a.ent.name.localeCompare(b.ent.name);
-  });
-  return list;
 }
 
 // ============================================================
@@ -348,12 +266,9 @@ function Gate({ onAuthed }) {
 
 const TABS = [
   { key: 'setup', label: 'Setup' },
-  { key: 'battle', label: 'Battle' },
   { key: 'open_stage', label: 'Open Stage' },
-  { key: 'fanchant', label: 'Fanchant' },
-  { key: 'fanbooth', label: 'Fanbooth' },
-  { key: 'live_voting', label: 'Live Voting' },
-  { key: 'standings', label: 'Standings' },
+  { key: 'k_classics', label: 'K-Classics' },
+  { key: 'results', label: 'Results' },
 ];
 
 function TallyApp({ code, onLogout }) {
@@ -444,62 +359,25 @@ function TallyApp({ code, onLogout }) {
       </div>
 
       {tab === 'setup' && <SetupTab data={data} act={act} busy={busy} />}
-      {(tab === 'battle' || tab === 'open_stage' || tab === 'fanchant' || tab === 'fanbooth') && (
+      {(tab === 'open_stage' || tab === 'k_classics') && (
         <CategoryTab key={tab} catKey={tab} data={data} act={act} busy={busy} code={code} />
       )}
-      {tab === 'live_voting' && <LiveVotingTab data={data} act={act} busy={busy} code={code} />}
-      {tab === 'standings' && <StandingsTab data={data} />}
+      {tab === 'results' && <ResultsTab data={data} />}
     </div>
   );
 }
 
 // ============================================================
-// SETUP — roster of Entertainments and entries per category
+// SETUP — entries per category (no Entertainments; both categories are own-title)
 // ============================================================
 function SetupTab({ data, act, busy }) {
-  const [entName, setEntName] = useState('');
-  const [entryCat, setEntryCat] = useState('battle');
+  const [entryCat, setEntryCat] = useState('open_stage');
   const [entryGroup, setEntryGroup] = useState('');
-  const [entryEnt, setEntryEnt] = useState('');
 
-  const ents = data.entertainments || [];
   const entries = data.entries || [];
-  const entById = {};
-  ents.forEach(function(e) { entById[e.id] = e; });
-  const needsEnt = CATEGORIES[entryCat].hasEntertainment;
 
   return (
     <div>
-      <Section title="Entertainments" subtitle="The labels competing for Overall Champion.">
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          <input type="text" placeholder="Entertainment name" value={entName}
-            style={{ flex: 1, minWidth: 200 }}
-            onChange={function(e) { setEntName(e.target.value); }} />
-          <button className="btn-primary" disabled={busy || !entName.trim()}
-            onClick={function() {
-              act(function() { return rpc('tally_add_entertainment', { p_code: dataCode(), p_name: entName.trim() }); })
-                .then(function() { setEntName(''); });
-            }}>
-            Add
-          </button>
-        </div>
-        {ents.length === 0 && <Empty>No Entertainments yet. Add them first.</Empty>}
-        {ents.map(function(ent) {
-          return (
-            <Row key={ent.id}>
-              <span style={{ fontWeight: 700 }}>{ent.name}</span>
-              <button className="btn-danger" disabled={busy}
-                onClick={function() {
-                  if (!window.confirm('Delete ' + ent.name + '? This also deletes its entries and scores.')) return;
-                  act(function() { return rpc('tally_delete_entertainment', { p_code: dataCode(), p_id: ent.id }); });
-                }}>
-                Delete
-              </button>
-            </Row>
-          );
-        })}
-      </Section>
-
       <Section title="Entries" subtitle="The groups / teams being scored, per category.">
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           <select value={entryCat} onChange={function(e) { setEntryCat(e.target.value); }}>
@@ -510,21 +388,15 @@ function SetupTab({ data, act, busy }) {
           <input type="text" placeholder="Group / team name" value={entryGroup}
             style={{ flex: 1, minWidth: 160 }}
             onChange={function(e) { setEntryGroup(e.target.value); }} />
-          {needsEnt && (
-            <select value={entryEnt} onChange={function(e) { setEntryEnt(e.target.value); }}>
-              <option value="">— Entertainment —</option>
-              {ents.map(function(ent) { return <option key={ent.id} value={ent.id}>{ent.name}</option>; })}
-            </select>
-          )}
           <button className="btn-primary"
-            disabled={busy || !entryGroup.trim() || (needsEnt && !entryEnt)}
+            disabled={busy || !entryGroup.trim()}
             onClick={function() {
               act(function() {
                 return rpc('tally_add_entry', {
                   p_code: dataCode(),
                   p_category: entryCat,
                   p_group_name: entryGroup.trim(),
-                  p_entertainment_id: needsEnt ? entryEnt : null,
+                  p_entertainment_id: null,
                 });
               }).then(function() { setEntryGroup(''); });
             }}>
@@ -545,9 +417,6 @@ function SetupTab({ data, act, busy }) {
                   <Row key={en.id}>
                     <span>
                       <span style={{ fontWeight: 700 }}>{en.group_name}</span>
-                      {en.entertainment_id && entById[en.entertainment_id] && (
-                        <span style={{ color: 'var(--text-soft)', fontSize: 13 }}> · {entById[en.entertainment_id].name}</span>
-                      )}
                       {en.disqualified && <DQBadge />}
                     </span>
                     <button className="btn-danger" disabled={busy}
@@ -580,8 +449,6 @@ function CategoryTab({ catKey, data, act, busy, code }) {
   const cfg = CATEGORIES[catKey];
   const entries = (data.entries || []).filter(function(e) { return e.category === catKey; });
   const scores = data.scores || [];
-  const entById = {};
-  (data.entertainments || []).forEach(function(e) { entById[e.id] = e; });
   const result = rankCategory(catKey, data.entries || [], scores);
   const hasTie = result.ranked.some(function(r) { return r.tied; });
 
@@ -592,9 +459,7 @@ function CategoryTab({ catKey, data, act, busy, code }) {
       </div>
       <div style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 20 }}>
         {cfg.criteria.map(function(c) { return c.name + ' (' + c.max + ')'; }).join(' · ')} — total 100 per judge.
-        {cfg.points
-          ? ' Placements: ' + cfg.points.map(function(p, i) { return PLACEMENT_LABELS[i] + ' +' + p; }).join(', ') + ' pts (stack to Entertainment).'
-          : ' Own title — no Overall Champion points.'}
+        {' Champion only — highest total sum across all 3 judges wins.'}
       </div>
 
       {hasTie && (
@@ -615,14 +480,11 @@ function CategoryTab({ catKey, data, act, busy, code }) {
                 <span>
                   <span style={{
                     display: 'inline-block', width: 28, fontWeight: 800,
-                    color: r.rank <= 3 && cfg.points ? cfg.accent : 'var(--text-soft)',
+                    color: r.rank === 1 ? cfg.accent : 'var(--text-soft)',
                   }}>
                     #{r.rank}
                   </span>
                   <span style={{ fontWeight: 700 }}>{r.entry.group_name}</span>
-                  {r.entry.entertainment_id && entById[r.entry.entertainment_id] && (
-                    <span style={{ color: 'var(--text-soft)', fontSize: 13 }}> · {entById[r.entry.entertainment_id].name}</span>
-                  )}
                   {r.tied && <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 700 }}> TIE</span>}
                 </span>
                 <span className="font-display" style={{ fontWeight: 800, fontSize: 17 }}>
@@ -642,7 +504,7 @@ function CategoryTab({ catKey, data, act, busy, code }) {
               key={en.id}
               entry={en}
               cfg={cfg}
-              ent={en.entertainment_id ? entById[en.entertainment_id] : null}
+              ent={null}
               stats={entryStats(en.id, scores)}
               act={act}
               busy={busy}
@@ -806,69 +668,14 @@ const thStyle = {
 const tdStyle = { padding: '8px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 14 };
 
 // ============================================================
-// LIVE VOTING — manual placements (Entertainment-level)
+// RESULTS — each category ranked independently, champion highlighted
 // ============================================================
-function LiveVotingTab({ data, act, busy, code }) {
-  _activeCode = code;
-  const ents = data.entertainments || [];
-  const lv = data.live_voting || [];
-  const byPlacement = {};
-  lv.forEach(function(x) { byPlacement[x.placement] = x.entertainment_id; });
-
-  return (
-    <div>
-      <div className="font-display" style={{ fontSize: 19, fontWeight: 800, color: '#7BD1FF', marginBottom: 4 }}>
-        Live Voting
-      </div>
-      <div style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 20 }}>
-        Audience votes for an Entertainment. Count the votes separately, then record the placements here.
-        Points: {LIVE_VOTING_POINTS.map(function(p, i) { return PLACEMENT_LABELS[i] + ' +' + p; }).join(', ')}.
-      </div>
-
-      {[1, 2, 3].map(function(pl) {
-        const usedElsewhere = lv
-          .filter(function(x) { return x.placement !== pl; })
-          .map(function(x) { return x.entertainment_id; });
-        return (
-          <Section key={pl} title={PLACEMENT_LABELS[pl - 1] + ' (+' + LIVE_VOTING_POINTS[pl - 1] + ' pts)'}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <select
-                value={byPlacement[pl] || ''}
-                style={{ flex: 1, minWidth: 220 }}
-                onChange={function(e) {
-                  const val = e.target.value || null;
-                  act(function() { return rpc('tally_set_live_voting', { p_code: dataCode(), p_placement: pl, p_entertainment_id: val }); });
-                }}
-                disabled={busy}
-              >
-                <option value="">— not set —</option>
-                {ents.map(function(ent) {
-                  return (
-                    <option key={ent.id} value={ent.id} disabled={usedElsewhere.indexOf(ent.id) !== -1}>
-                      {ent.name}{usedElsewhere.indexOf(ent.id) !== -1 ? ' (already placed)' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </Section>
-        );
-      })}
-    </div>
-  );
-}
-
-// ============================================================
-// STANDINGS — overall champion board
-// ============================================================
-function StandingsTab({ data }) {
+function ResultsTab({ data }) {
   const entries = data.entries || [];
   const scores = data.scores || [];
-  const ents = data.entertainments || [];
-  const lv = data.live_voting || [];
 
   const warnings = [];
-  ['battle', 'fanchant', 'fanbooth', 'open_stage'].forEach(function(cat) {
+  Object.keys(CATEGORIES).forEach(function(cat) {
     const r = rankCategory(cat, entries, scores);
     if (r.incomplete.length) {
       warnings.push(CATEGORIES[cat].short + ': ' + r.incomplete.length + ' entr' + (r.incomplete.length === 1 ? 'y' : 'ies') + ' missing judge scores');
@@ -877,10 +684,6 @@ function StandingsTab({ data }) {
       warnings.push(CATEGORIES[cat].short + ': EXACT TIE needs judges\u2019 decision');
     }
   });
-  if (lv.length < 3) warnings.push('Live Voting: ' + (3 - lv.length) + ' placement(s) not set');
-
-  const standings = computeStandings(ents, entries, scores, lv);
-  const openStage = rankCategory('open_stage', entries, scores);
 
   return (
     <div>
@@ -890,86 +693,44 @@ function StandingsTab({ data }) {
           background: 'rgba(255,184,77,0.1)', border: '1px solid rgba(255,184,77,0.4)',
           color: 'var(--warn)', fontSize: 13, lineHeight: 1.7,
         }}>
-          <strong>Not final yet:</strong> {warnings.join(' · ')}
+          <strong>Not final yet:</strong> {warnings.join(' \u00b7 ')}
         </div>
       )}
 
-      <Section title="Overall Champion standings" subtitle="Placement points stack across all entries. Live Voting included.">
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Entertainment</th>
-                <th style={thStyle}>Battle</th>
-                <th style={thStyle}>Fanchant</th>
-                <th style={thStyle}>Fanbooth</th>
-                <th style={thStyle}>Live Vote</th>
-                <th style={thStyle}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map(function(row, i) {
-                const champ = i === 0 && row.total > 0;
-                return (
-                  <tr key={row.ent.id} style={champ ? { background: 'rgba(255,27,107,0.08)' } : {}}>
-                    <td style={Object.assign({}, tdStyle, { fontWeight: 800, color: champ ? 'var(--brand)' : 'var(--text-soft)' })}>{i + 1}</td>
-                    <td style={Object.assign({}, tdStyle, { fontWeight: 700 })}>
-                      {row.ent.name}{champ && <span style={{ color: 'var(--brand)', fontSize: 11, fontWeight: 800, marginLeft: 8 }}>♛ LEADING</span>}
-                    </td>
-                    <td style={tdStyle}>{row.points.battle || '—'}</td>
-                    <td style={tdStyle}>{row.points.fanchant || '—'}</td>
-                    <td style={tdStyle}>{row.points.fanbooth || '—'}</td>
-                    <td style={tdStyle}>{row.points.live_voting || '—'}</td>
-                    <td style={Object.assign({}, tdStyle, { fontWeight: 800, fontSize: 16 })}>{row.total}</td>
-                  </tr>
-                );
-              })}
-              {standings.length === 0 && (
-                <tr><td colSpan="7" style={tdStyle}>No Entertainments yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Section>
-
-      {['battle', 'fanchant', 'fanbooth'].map(function(cat) {
-        const placements = categoryPlacements(cat, entries, scores);
-        if (!placements.length) return null;
+      {Object.keys(CATEGORIES).map(function(cat) {
+        const cfg = CATEGORIES[cat];
+        const r = rankCategory(cat, entries, scores);
         return (
-          <Section key={cat} title={CATEGORIES[cat].label + ' — placements'}>
-            {placements.map(function(p) {
+          <Section key={cat} title={cfg.label + ' \u2014 final ranking'} subtitle="Champion is the highest total. Averages shown with full decimals.">
+            {r.ranked.length === 0 && <Empty>No complete entries yet in this category.</Empty>}
+            {r.ranked.map(function(row) {
+              const champ = row.rank === 1;
               return (
-                <Row key={p.placement}>
+                <Row key={row.entry.id}>
                   <span>
-                    <span style={{ fontWeight: 800, color: CATEGORIES[cat].accent }}>{PLACEMENT_LABELS[p.placement]}</span>
-                    <span style={{ fontWeight: 700, marginLeft: 10 }}>{p.entry.group_name}</span>
-                    {p.tied && <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 700 }}> TIE</span>}
+                    <span style={{ display: 'inline-block', width: 28, fontWeight: 800, color: champ ? cfg.accent : 'var(--text-soft)' }}>#{row.rank}</span>
+                    <span style={{ fontWeight: 700 }}>{row.entry.group_name}</span>
+                    {champ && <span style={{ color: cfg.accent, fontSize: 11, fontWeight: 800, marginLeft: 8 }}>\u265b CHAMPION</span>}
+                    {row.tied && <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 700 }}> TIE</span>}
                   </span>
-                  <span style={{ fontWeight: 800 }}>+{p.points}</span>
+                  <span className="font-display" style={{ fontWeight: 800 }}>{fmtAvg(row.stats.avg)}</span>
+                </Row>
+              );
+            })}
+            {r.dq.map(function(d) {
+              return (
+                <Row key={d.entry.id}>
+                  <span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-soft)' }}>{d.entry.group_name}</span>
+                    <DQBadge />
+                  </span>
+                  <span style={{ color: 'var(--text-soft)' }}>—</span>
                 </Row>
               );
             })}
           </Section>
         );
       })}
-
-      {openStage.ranked.length > 0 && (
-        <Section title="Open Stage — final ranking" subtitle="Own title and prize. No Overall Champion points.">
-          {openStage.ranked.map(function(r) {
-            return (
-              <Row key={r.entry.id}>
-                <span>
-                  <span style={{ display: 'inline-block', width: 28, fontWeight: 800, color: r.rank === 1 ? 'var(--brand)' : 'var(--text-soft)' }}>#{r.rank}</span>
-                  <span style={{ fontWeight: 700 }}>{r.entry.group_name}</span>
-                  {r.tied && <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 700 }}> TIE</span>}
-                </span>
-                <span className="font-display" style={{ fontWeight: 800 }}>{fmtAvg(r.stats.avg)}</span>
-              </Row>
-            );
-          })}
-        </Section>
-      )}
     </div>
   );
 }
