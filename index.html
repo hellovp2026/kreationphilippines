@@ -3856,6 +3856,8 @@ function RegistrationForm({ event }) {
         member_age: parseInt(String(m.age || '').trim(), 10),
         member_order: idx + 1,
         payment_status: 'unpaid',
+        claims_other_category: !!m.claimsOverlap,
+        other_category_group: m.claimsOverlap ? (m.overlapGroup || '').trim() : null,
         added_by: 'buyer_form',
       }));
       const { error: memErr } = await supabase
@@ -4249,41 +4251,77 @@ function RegistrationForm({ event }) {
               <div
                 key={idx}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '38px 1fr 92px',
-                  gap: 10,
-                  alignItems: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  padding: '10px',
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 <div
-                  className="font-mono"
                   style={{
-                    fontSize: 11, fontWeight: 700,
-                    color: 'var(--text-soft)',
-                    letterSpacing: 1,
-                    textAlign: 'center',
+                    display: 'grid',
+                    gridTemplateColumns: '38px 1fr 92px',
+                    gap: 10,
+                    alignItems: 'center',
                   }}
                 >
-                  #{idx + 1}
+                  <div
+                    className="font-mono"
+                    style={{
+                      fontSize: 11, fontWeight: 700,
+                      color: 'var(--text-soft)',
+                      letterSpacing: 1,
+                      textAlign: 'center',
+                    }}
+                  >
+                    #{idx + 1}
+                  </div>
+                  <input
+                    type="text"
+                    value={m.name || ''}
+                    onChange={(e) => updateMember(idx, 'name', e.target.value)}
+                    placeholder={'Member #' + (idx + 1) + ' full name'}
+                    style={inputStyle}
+                    required
+                  />
+                  <input
+                    type="number"
+                    value={m.age || ''}
+                    onChange={(e) => updateMember(idx, 'age', e.target.value)}
+                    placeholder="Age"
+                    min="1"
+                    max="99"
+                    style={{ ...inputStyle, textAlign: 'center' }}
+                    required
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={m.name || ''}
-                  onChange={(e) => updateMember(idx, 'name', e.target.value)}
-                  placeholder={'Member #' + (idx + 1) + ' full name'}
-                  style={inputStyle}
-                  required
-                />
-                <input
-                  type="number"
-                  value={m.age || ''}
-                  onChange={(e) => updateMember(idx, 'age', e.target.value)}
-                  placeholder="Age"
-                  min="1"
-                  max="99"
-                  style={{ ...inputStyle, textAlign: 'center' }}
-                  required
-                />
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontSize: 12, color: 'var(--text-soft)', cursor: 'pointer',
+                    paddingLeft: 48,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!m.claimsOverlap}
+                    onChange={(e) => updateMember(idx, 'claimsOverlap', e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  This member is also registered in the other category (Open Stage / K-Classics)
+                </label>
+                {m.claimsOverlap && (
+                  <input
+                    type="text"
+                    value={m.overlapGroup || ''}
+                    onChange={(e) => updateMember(idx, 'overlapGroup', e.target.value)}
+                    placeholder="Their group name in the other category"
+                    style={{ ...inputStyle, marginLeft: 48, width: 'calc(100% - 48px)' }}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -6111,7 +6149,7 @@ async function submitOrder({
     receipt_path: path,
     receipt_uploaded_at: new Date().toISOString(),
     status: 'awaiting_verification',
-  }).select().single();
+  }).select('id, order_number').single();
   if (insOrder.error) throw new Error('Order creation failed: ' + insOrder.error.message);
   const order = insOrder.data;
 
