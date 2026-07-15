@@ -1856,12 +1856,15 @@ function Dashboard({ session, adminRecord }) {
     const order = orders.find((o) => o.id === id);
     if (!order) return;
 
-    // Invalidate all still-active tickets for this order
+    // Invalidate all still-active tickets for this order.
+    // 'issued' = never scanned; 'used' = scanned at the door. A void must
+    // sweep BOTH: a 'used' ticket that survives keeps its seat on the map
+    // and stays in the scanner tally.
     const { data: activeTickets } = await supabase
       .from('tickets')
       .select('id')
       .eq('order_id', id)
-      .eq('status', 'issued');
+      .in('status', ['issued', 'used']);
 
     if (activeTickets && activeTickets.length > 0) {
       const now = new Date().toISOString();
@@ -1886,15 +1889,32 @@ function Dashboard({ session, adminRecord }) {
       return;
     }
 
+    // Free the seats. order_seats rows are reservations, and the DB's
+    // double-booking guard doesn't know the order is dead: leftover rows
+    // can keep the seat squatted for resale. Walk-in rollback already
+    // deletes order_seats the same way.
+    const delSeats = await supabase.from('order_seats')
+      .delete()
+      .eq('order_id', id)
+      .select('id');
+    const seatsFreed = delSeats.data ? delSeats.data.length : 0;
+    if (delSeats.error) {
+      console.error('order_seats cleanup failed:', delSeats.error);
+      showToast('Order voided, but seat release failed: ' + delSeats.error.message, 'warning');
+    }
+
     await supabase.from('audit_log').insert({
       actor_email: session.user.email,
       action: 'order_voided',
       resource_type: 'order',
       resource_id: id,
-      details: { reason: reason || null, invalidatedTickets: activeTickets ? activeTickets.length : 0 },
+      details: { reason: reason || null, invalidatedTickets: activeTickets ? activeTickets.length : 0, seatsFreed: seatsFreed },
     });
 
-    showToast('Order voided' + (activeTickets && activeTickets.length > 0 ? ' (' + activeTickets.length + ' tickets invalidated)' : ''));
+    const bits = [];
+    if (activeTickets && activeTickets.length > 0) bits.push(activeTickets.length + ' ticket' + (activeTickets.length === 1 ? '' : 's') + ' invalidated');
+    if (seatsFreed > 0) bits.push(seatsFreed + ' seat' + (seatsFreed === 1 ? '' : 's') + ' freed');
+    showToast('Order voided' + (bits.length ? ' (' + bits.join(', ') + ')' : ''));
     fetchOrders();
     fetchTickets();
     setSelectedId(null);
@@ -1932,7 +1952,9 @@ function Dashboard({ session, adminRecord }) {
 
   const filteredRegs = useMemo(() => {
     return registrations
-      .filter((r) => regTab === 'all' ? true : r.status === regTab)
+      .filter((r) => regTab === 'all'
+        ? (r.status !== 'rejected' && r.status !== 'withdrawn')
+        : r.status === regTab)
       .filter((r) => regCategoryFilter === 'all' || r.category === regCategoryFilter)
       .filter((r) => {
         if (!regSearch) return true;
@@ -3512,7 +3534,7 @@ function Dashboard({ session, adminRecord }) {
             background: section === 'registrations' ? 'rgba(255, 27, 107, 0.3)' : 'rgba(255, 255, 255, 0.06)',
             padding: '1px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
           }}>
-            {registrations.length}
+            {regCounts.pending + regCounts.confirmed + regCounts.paid}
           </span>
         </button>
         <button onClick={() => setSection('ban-revoke')} style={sectionBtnStyle(section === 'ban-revoke')}>
@@ -4761,7 +4783,7 @@ function DetailPanel({ order, onClose, onConfirm, onReject, onVoid, onZoomReceip
       {order.status === 'confirmed' && (
         <Section title="Danger Zone">
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
-            Void this order if it was a test, fraud, or admin error. Any active tickets will be invalidated automatically. The order disappears from active counts but stays in the database for audit.
+            Void this order if it was a test, fraud, or admin error. Any active tickets (scanned or not) will be invalidated and any VIP seats released automatically. The order disappears from active counts but stays in the database for audit.
           </div>
           <button
             onClick={() => {
@@ -4942,7 +4964,7 @@ function RegistrationsView({
           }}>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {[
-                { key: 'all', label: 'All', count: registrations.length },
+                { key: 'all', label: 'All', count: regCounts.pending + regCounts.confirmed + regCounts.paid },
                 { key: 'pending', label: 'Pending', count: regCounts.pending },
                 { key: 'confirmed', label: 'Confirmed', count: regCounts.confirmed },
                 { key: 'paid', label: 'Paid', count: regCounts.paid },
@@ -5031,7 +5053,7 @@ function RegistrationsView({
               { key: 'k-classics', label: 'K-Classics', accent: '#C724FF' },
             ].map((c) => {
               const isActive = regCategoryFilter === c.key;
-              const catCount = c.key === 'all' ? registrations.length : (regCategoryCounts[c.key] || 0);
+              const catCount = c.key === 'all' ? (regCounts.pending + regCounts.confirmed + regCounts.paid) : (regCategoryCounts[c.key] || 0);
               return (
                 <button key={c.key} onClick={() => setRegCategoryFilter(c.key)}
                   style={{
