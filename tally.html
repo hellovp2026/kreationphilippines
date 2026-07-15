@@ -272,6 +272,11 @@ const TABS = [
 ];
 
 function TallyApp({ code, onLogout }) {
+  // Keep the module-level code current from the moment the app renders.
+  // Previously this was only set inside CategoryTab, so buttons on the
+  // Setup tab (Import/Add/Delete) sent a blank passcode until a category
+  // tab had been visited at least once.
+  _activeCode = code;
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('setup');
   const [err, setErr] = useState(null);
