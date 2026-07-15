@@ -373,12 +373,52 @@ function TallyApp({ code, onLogout }) {
 function SetupTab({ data, act, busy }) {
   const [entryCat, setEntryCat] = useState('open_stage');
   const [entryGroup, setEntryGroup] = useState('');
+  const [includeConfirmed, setIncludeConfirmed] = useState(true);
+  const [importMsg, setImportMsg] = useState('');
 
   const entries = data.entries || [];
 
   return (
     <div>
       <Section title="Entries" subtitle="The groups / teams being scored, per category.">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+          <button className="btn-primary" disabled={busy}
+            onClick={function() {
+              setImportMsg('');
+              act(function() {
+                return rpc('tally_import_entries', {
+                  p_code: dataCode(),
+                  p_include_confirmed: includeConfirmed,
+                }).then(function(res) {
+                  const n = (res && res.added_count) || 0;
+                  const sk = (res && res.skipped) || 0;
+                  setImportMsg(
+                    'Imported ' + n + ' new entr' + (n === 1 ? 'y' : 'ies') +
+                    (sk > 0 ? ' (' + sk + ' already in the tally, skipped)' : '') + '.'
+                  );
+                });
+              });
+            }}>
+            Import from registrations
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={includeConfirmed}
+              onChange={function(e) { setIncludeConfirmed(e.target.checked); }} />
+            Include confirmed (not yet paid)
+          </label>
+        </div>
+        {importMsg && (
+          <div style={{
+            fontSize: 13, color: 'var(--ok)', marginBottom: 12,
+            padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(61,220,151,0.08)', border: '1px solid rgba(61,220,151,0.25)',
+          }}>
+            {importMsg}
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 14 }}>
+          Import pulls paid groups from the registration system (plus confirmed ones if ticked), skips anything already listed, and can be re-run safely. You can also add entries by hand below.
+        </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           <select value={entryCat} onChange={function(e) { setEntryCat(e.target.value); }}>
             {Object.keys(CATEGORIES).map(function(k) {
