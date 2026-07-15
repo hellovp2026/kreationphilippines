@@ -519,8 +519,8 @@ function buildOrderContext(order, orderTickets, settings) {
   if (orderTickets && orderTickets.length > 0) {
     const lines = [];
     orderTickets.forEach(function(t) {
-      let line = '\u2022 ' + (t.ticket_code || '') + ' \u2014 ' + (t.attendee_name || '');
-      if (t.seat_label) line += ' \u2014 Seat ' + t.seat_label;
+      let line = '\u2022 ' + (t.ticket_code || '') + ' - ' + (t.attendee_name || '');
+      if (t.seat_label) line += ' - Seat ' + t.seat_label;
       lines.push(line);
     });
     ticketSummary = lines.join('\n');
@@ -554,7 +554,7 @@ function buildPerformerTicketsContext(reg, performerTickets, settings) {
   if (performerTickets && performerTickets.length > 0) {
     const lines = [];
     performerTickets.forEach(function(t) {
-      lines.push('\u2022 ' + (t.ticket_code || '') + ' \u2014 ' + (t.attendee_name || ''));
+      lines.push('\u2022 ' + (t.ticket_code || '') + ' - ' + (t.attendee_name || ''));
     });
     ticketSummary = lines.join('\n');
   }
@@ -570,7 +570,7 @@ function buildConfirmationMailto(reg, template, settings) {
 
   // Fall back to hardcoded if no template loaded
   const subjectTpl = (template && template.subject)
-    || 'Your KPH Registration is Confirmed \u2014 {{group_name}}';
+    || 'Your KPH Registration is Confirmed: {{group_name}}';
   const bodyTpl = (template && template.body)
     || ('Hi {{leader_name}},\n\nThank you for registering "{{group_name}}". Reply to this email for next steps.\n\nKreation Philippines');
 
@@ -591,7 +591,7 @@ function buildTicketsEmailMailto(order, orderTickets, settings, template) {
   const subjectTpl = (template && template.subject)
     || 'Your DKC 2026 Tickets \u00b7 Order {{order_number}}';
   const bodyTpl = (template && template.body)
-    || ('Hi {{buyer_name}},\n\nYour {{ticket_count}} ticket(s) for Davao K-Pop Convention 2026 are attached as a PDF.\n\n{{ticket_summary}}\n\nTotal paid: \u20B1{{total}}\n\nDate: Saturday, August 22, 2026\nVenue: CAP Grand Auditorium, Davao\n\nBring a valid ID matching the attendee name. Each ticket has a unique QR \u2014 do not share publicly.\n\nSee you at DKC 2026!\nKreation Philippines');
+    || ('Hi {{buyer_name}},\n\nYour {{ticket_count}} ticket(s) for Davao K-Pop Convention 2026 are attached as a PDF.\n\n{{ticket_summary}}\n\nTotal paid: \u20B1{{total}}\n\nDate: Saturday, August 22, 2026\nVenue: CAP Grand Auditorium, Davao\n\nBring a valid ID matching the attendee name. Each ticket has a unique QR. Do not share publicly.\n\nSee you at DKC 2026!\nKreation Philippines');
 
   const subject = applyTemplate(subjectTpl, ctx);
   const body = applyTemplate(bodyTpl, ctx);
@@ -607,7 +607,7 @@ function buildPerformerTicketsMailto(reg, performerTickets, settings, template) 
   const ctx = buildPerformerTicketsContext(reg, performerTickets, settings);
 
   const subjectTpl = (template && template.subject)
-    || 'DKC 2026 \u2014 Your performer tickets ({{group_name}})';
+    || 'DKC 2026: Your performer tickets ({{group_name}})';
   const bodyTpl = (template && template.body)
     || ('Hi {{leader_name}},\n\nYour {{member_count}} performer tickets are attached.\n\n{{ticket_summary}}\n\nDate: Saturday, August 22, 2026\nVenue: CAP Grand Auditorium, Davao\n\nKreation Philippines');
 
@@ -1281,7 +1281,16 @@ function App() {
       setBootLoading(false);
     });
     const sub = supabase.auth.onAuthStateChange(function(_e, sess) {
-      setSession(sess);
+      setSession(function(prev) {
+        // Token refreshes and tab-focus re-announcements fire this with the
+        // same user. Keeping the previous state reference stops the whole
+        // console from remounting ("Verifying access..." flash) on every
+        // tab switch. The supabase client already holds the fresh token.
+        if (prev && sess && prev.user && sess.user && prev.user.id === sess.user.id) {
+          return prev;
+        }
+        return sess;
+      });
       if (!sess) { setIsAdmin(null); setAdminRecord(null); }
     });
     return function() { sub.data.subscription.unsubscribe(); };
@@ -1609,6 +1618,7 @@ function Dashboard({ session, adminRecord }) {
 
   // ===== REGISTRATIONS STATE =====
   const [registrations, setRegistrations] = useState([]);
+  const [regMembers, setRegMembers] = useState([]);
   const [regLoading, setRegLoading] = useState(true);
   const [regTab, setRegTab] = useState('pending');
   const [regSearch, setRegSearch] = useState('');
@@ -1891,13 +1901,20 @@ function Dashboard({ session, adminRecord }) {
   }, [orders, session, showToast, fetchOrders, fetchTickets]);
 
   const fetchRegistrations = useCallback(async () => {
-    const res = await supabase.from('registrations').select('*')
-      .order('created_at', { ascending: false });
+    const [res, memRes] = await Promise.all([
+      supabase.from('registrations').select('*').order('created_at', { ascending: false }),
+      supabase.from('registration_members').select('id, registration_id, member_name, payment_status'),
+    ]);
     if (res.error) {
       console.error(res.error);
       showToast('Could not load registrations', 'warning');
     } else {
       setRegistrations(res.data || []);
+    }
+    if (memRes.error) {
+      console.error(memRes.error);
+    } else {
+      setRegMembers(memRes.data || []);
     }
     setRegLoading(false);
   }, [showToast]);
@@ -1907,13 +1924,15 @@ function Dashboard({ session, adminRecord }) {
     const channel = supabase.channel('registrations-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' },
           () => fetchRegistrations())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registration_members' },
+          () => fetchRegistrations())
       .subscribe();
     return function() { supabase.removeChannel(channel); };
   }, [fetchRegistrations]);
 
   const filteredRegs = useMemo(() => {
     return registrations
-      .filter((r) => r.status === regTab)
+      .filter((r) => regTab === 'all' ? true : r.status === regTab)
       .filter((r) => regCategoryFilter === 'all' || r.category === regCategoryFilter)
       .filter((r) => {
         if (!regSearch) return true;
@@ -1935,6 +1954,32 @@ function Dashboard({ session, adminRecord }) {
     registrations.forEach((r) => { if (c[r.status] !== undefined) c[r.status]++; });
     return c;
   }, [registrations]);
+
+  // Individual participant headcount across ALL active registrations.
+  // A person in two groups counts ONCE: waived_overlap entries are excluded
+  // (they're the same human as a paid entry elsewhere), and remaining entries
+  // are deduped by normalized name to catch overlaps not yet waived.
+  const partStats = useMemo(() => {
+    const activeIds = new Set(
+      registrations
+        .filter((r) => r.status !== 'rejected' && r.status !== 'withdrawn')
+        .map((r) => r.id)
+    );
+    const norm = (m) => {
+      const n = (m.member_name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      return n || ('id:' + m.id); // unnamed rows never merge with each other
+    };
+    const heads = new Set();
+    const paidHeads = new Set();
+    regMembers.forEach((m) => {
+      if (!activeIds.has(m.registration_id)) return;
+      if (m.payment_status === 'dropped' || m.payment_status === 'waived_overlap') return;
+      const key = norm(m);
+      heads.add(key);
+      if (m.payment_status === 'paid') paidHeads.add(key);
+    });
+    return { heads: heads.size, paidHeads: paidHeads.size, sales: paidHeads.size * 300 };
+  }, [registrations, regMembers]);
 
   // Groups that are all-paid but tickets haven't been issued yet.
   // Surfaces in a stat card so admin doesn't forget to click Generate Tickets.
@@ -3662,6 +3707,7 @@ function Dashboard({ session, adminRecord }) {
         regCategoryFilter={regCategoryFilter} setRegCategoryFilter={setRegCategoryFilter}
         regSelectedId={regSelectedId} setRegSelectedId={setRegSelectedId}
         regCounts={regCounts}
+        partStats={partStats}
         readyToIssueCount={readyToIssueCount}
         regCategoryCounts={regCategoryCounts}
         selectedReg={selectedReg}
@@ -4298,7 +4344,7 @@ function OrderRow({ order, position, selected, onClick, tierBreakdown }) {
           {typeDisplay}
         </div>
         <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {order.seat_labels || (order.ticket_type_category === 'dancer' ? 'Crew' : '\u2014')}
+          {order.seat_labels || (order.ticket_type_category === 'dancer' ? 'Group' : '-')}
           {apQty > 0 && <span style={{ color: 'var(--brand)', marginLeft: 6 }}>+ {apQty} AP</span>}
         </div>
       </div>
@@ -4807,7 +4853,7 @@ function RegistrationsView({
   regTab, setRegTab, regSearch, setRegSearch,
   regCategoryFilter, setRegCategoryFilter,
   regSelectedId, setRegSelectedId,
-  regCounts, readyToIssueCount, regCategoryCounts,
+  regCounts, partStats, readyToIssueCount, regCategoryCounts,
   selectedReg, onUpdateStatus, onTransferCategory, onRemoveRegistration, onSaveNotes,
   onMarkConfirmationSent, onUnmarkConfirmationSent,
   onExportCSV, emailTemplate, performerTicketsTemplate, settings, onEditTemplate,
@@ -4837,9 +4883,21 @@ function RegistrationsView({
   };
   const clearSelection = () => setBulkSelected({});
   const bulkConfirm = async () => {
-    if (!window.confirm('Confirm ' + selectedCount + ' registrations?')) return;
-    for (const id of Object.keys(bulkSelected)) {
-      if (bulkSelected[id]) await onUpdateStatus(id, 'confirmed');
+    // Only pending registrations can be bulk-confirmed. On the All tab a
+    // select-all sweeps paid/rejected/withdrawn rows too; confirming those
+    // would silently downgrade them, so they are skipped.
+    const pendingIds = filteredRegs
+      .filter((r) => bulkSelected[r.id] && r.status === 'pending')
+      .map((r) => r.id);
+    const skipped = selectedCount - pendingIds.length;
+    if (pendingIds.length === 0) {
+      window.alert('None of the selected registrations are pending. Nothing to confirm.');
+      return;
+    }
+    const note = skipped > 0 ? ' (' + skipped + ' non-pending selection' + (skipped === 1 ? '' : 's') + ' will be skipped.)' : '';
+    if (!window.confirm('Confirm ' + pendingIds.length + ' pending registration' + (pendingIds.length === 1 ? '' : 's') + '?' + note)) return;
+    for (const id of pendingIds) {
+      await onUpdateStatus(id, 'confirmed');
     }
     clearSelection();
   };
@@ -4847,6 +4905,9 @@ function RegistrationsView({
     <React.Fragment>
       {/* Stats row */}
       <div style={{ padding: '20px 32px 0', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <StatCard label="Participant Headcount" value={partStats.heads}
+                  sub={partStats.paidHeads + ' paid · \u20B1' + partStats.sales.toLocaleString() + ' collected'}
+                  accent="#FF1B6B" iconName="users" />
         <StatCard label="Pending Review" value={regCounts.pending}
                   sub="awaiting your action" accent="#FFB300" iconName="clock" />
         <StatCard label="Confirmed" value={regCounts.confirmed}
@@ -4881,6 +4942,7 @@ function RegistrationsView({
           }}>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {[
+                { key: 'all', label: 'All', count: registrations.length },
                 { key: 'pending', label: 'Pending', count: regCounts.pending },
                 { key: 'confirmed', label: 'Confirmed', count: regCounts.confirmed },
                 { key: 'paid', label: 'Paid', count: regCounts.paid },
@@ -5098,7 +5160,8 @@ function RegistrationsView({
 
 function RegEmptyState({ tab, search }) {
   const msgs = {
-    pending: { title: 'No pending registrations', body: "When crews submit entries via the website, they'll appear here." },
+    all: { title: 'No registrations yet', body: "When groups submit entries via the website, they'll appear here." },
+    pending: { title: 'No pending registrations', body: "When groups submit entries via the website, they'll appear here." },
     confirmed: { title: 'No confirmed registrations', body: 'Approved entries land here. None yet.' },
     paid: { title: 'No paid registrations', body: 'Once payment is verified, mark entries as paid.' },
     rejected: { title: 'No rejected entries', body: 'Entries you decline appear here.' },

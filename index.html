@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Davao K-Pop Convention 2026 — Tickets</title>
+<title>Davao K-Pop Convention 2026 · Tickets</title>
 <link rel="icon" type="image/png" href="/kph-favicon.png">
 <link rel="apple-touch-icon" href="/kph-favicon.png">
 
@@ -12,7 +12,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Unbounded:wght@700;800&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -52,23 +52,12 @@
     min-height: 100vh;
   }
   .font-display { font-family: 'Sora', ui-sans-serif; letter-spacing: -0.4px; }
+  .font-headline { font-family: 'Unbounded', 'Sora', ui-sans-serif; letter-spacing: -0.5px; }
   .font-arcade { font-family: 'Bungee', ui-sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
-  .grad-text {
-    background: linear-gradient(90deg, #FF1B6B 0%, #C724FF 50%, #00E5FF 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-  }
-  .grad-text-tight {
-    background: linear-gradient(90deg, #FF1B6B, #C724FF);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-  }
+  .grad-text { color: var(--brand); }
+  .grad-text-tight { color: var(--brand); }
 
   .blob {
     position: absolute;
@@ -494,7 +483,7 @@ const Icon = ({ name, size = 16, strokeWidth = 2 }) => {
 const peso = (n) => '₱' + new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0 }).format(Number(n) || 0);
 
 const formatDate = (iso, opts = {}) => {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('en-PH', {
     weekday: opts.weekday || undefined,
     month: 'short',
@@ -586,9 +575,10 @@ function HomeScreen({ event, ticketTypes, addOns, onBuyTickets, onOpenEvent, onO
       <HomeCategoryMarquee />
       <HomeTiers ticketTypes={ticketTypes} addOns={addOns} onBuyTickets={onBuyTickets} />
       <HomePastEvents onOpenEvent={onOpenEvent} />
-      <HomeCategories />
-      <HomeKreation />
+      <HomeCategories onOpenRegister={onOpenRegister} />
       <HomeFAQ event={event} />
+      <HomeKreation />
+      <HomeFinalCTA onBuyTickets={onBuyTickets} />
       <HomeFooter />
       <LiveActivityToast />
       <StickyMobileCTA onBuyTickets={onBuyTickets} />
@@ -849,14 +839,10 @@ function Countdown() {
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
     }}>
-      <div className="font-mono" style={{
-        fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
-        display: 'flex', alignItems: 'center', gap: 8,
+      <div style={{
+        fontSize: 10, letterSpacing: 2.5, color: 'var(--brand)', fontWeight: 700,
+        fontFamily: 'Sora, sans-serif',
       }}>
-        <span style={{
-          width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
-          boxShadow: '0 0 10px var(--brand)',
-        }} />
         COUNTDOWN TO D-DAY
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -895,23 +881,14 @@ function HomeHero({ event, onBuyTickets }) {
         position: 'relative', zIndex: 1, width: '100%', maxWidth: 1320, margin: '0 auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
       }}>
-        {/* Edition badge */}
+        {/* Edition kicker */}
         <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 12,
-          padding: '8px 16px',
-          background: 'rgba(255,27,107,0.08)',
-          border: '1px solid rgba(255,27,107,0.4)',
-          borderRadius: 4,
-          fontSize: 10, fontWeight: 700, letterSpacing: 3,
-          color: 'var(--brand)',
-          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 11, fontWeight: 700, letterSpacing: 2.5,
+          fontFamily: 'Sora, sans-serif',
           marginBottom: 32,
         }}>
-          <span style={{
-            width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
-            boxShadow: '0 0 10px var(--brand)',
-          }} />
-          EDITION 06 · PRESENTED BY KREATION PHILIPPINES
+          <span style={{ color: 'var(--brand)' }}>EDITION 06</span>
+          <span style={{ color: 'var(--text-soft)' }}>{'\u00A0\u00A0'}PRESENTED BY KREATION PHILIPPINES</span>
         </div>
 
         {/* THE EVENT LOGO — image has baked-in alpha fade */}
@@ -932,7 +909,7 @@ function HomeHero({ event, onBuyTickets }) {
           maxWidth: 580, margin: '40px auto 32px',
           color: 'var(--text-muted)', lineHeight: 1.7,
         }}>
-          Davao's biggest K-pop cover competition. Crews compete live, the crowd votes,
+          Davao's biggest K-pop cover competition. Groups compete live, the crowd votes,
           and the night ends with the city's loudest rave.
         </p>
 
@@ -1143,6 +1120,7 @@ function EventLogoLockup() {
 
 function HomeCategoryMarquee() {
   const items = [
+    'REGISTRATION CLOSES JUL 27',
     'OPEN STAGE',
     'K-CLASSICS',
     '₱35,000 PRIZE POOL',
@@ -1191,12 +1169,12 @@ function HomeAbout() {
     {
       kicker: '01',
       title: 'Compete',
-      desc: "Cover groups from across Mindanao perform live for a chance at the championship. Choreography, costuming, stage presence — judged by a panel of K-pop industry insiders.",
+      desc: "Cover groups from across Mindanao perform live for a chance at the championship. Choreography, costuming, and stage presence, judged by a panel of K-pop industry insiders.",
     },
     {
       kicker: '02',
       title: 'Vote',
-      desc: "The audience picks the People's Choice winner. Every ticket holder gets one vote — make it count.",
+      desc: "The audience picks the People's Choice winner. Every ticket holder gets one vote. Make it count.",
     },
     {
       kicker: '03',
@@ -1206,7 +1184,7 @@ function HomeAbout() {
     {
       kicker: '04',
       title: 'Rave',
-      desc: "The night doesn't end when the contest ends. Add the Rave Party Pass — unlimited drinks, official after-party of DKC 2026.",
+      desc: "The night doesn't end when the contest ends. Add the Rave Party Pass: drinks available, official after-party of DKC 2026.",
     },
   ];
   return (
@@ -1220,25 +1198,19 @@ function HomeAbout() {
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, var(--accent), transparent)',
           }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--accent)',
+          <span style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--accent)',
             fontWeight: 700,
           }}>
-            01 — WHAT TO EXPECT
+            WHAT TO EXPECT
           </span>
         </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
+        <h2 className="font-headline" style={{
+          fontSize: 'clamp(26px, 4.2vw, 54px)', lineHeight: 1.08,
+          margin: '0 0 24px', fontWeight: 800,
         }}>
-          One night. Four reasons to{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 70%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>be there.</span>
+          Here's what you're{' '}
+          <span style={{ color: 'var(--brand)' }}>walking into.</span>
         </h2>
         <p style={{
           fontSize: 'clamp(15px, 1.4vw, 18px)',
@@ -1298,13 +1270,13 @@ function HomeAbout() {
 // ============================================================
 // HOME CATEGORIES — official event competitions
 // ============================================================
-function HomeCategories() {
+function HomeCategories({ onOpenRegister }) {
   const categories = [
     {
       number: '01',
       name: 'Open Stage',
       tagline: 'The flagship. One champion takes the night.',
-      desc: "DKC 2026's headline competition. Cover groups go head to head on the CAP Grand Auditorium stage — three judges plus the crowd decide the winners. One group walks away the Open Stage Champion.",
+      desc: "DKC 2026's headline competition. Cover groups go head to head on the CAP Grand Auditorium stage. Three judges plus the crowd decide the winners. One group walks away the Open Stage Champion.",
       accent: '#FF1B6B',
       glyph: 'diamond',
     },
@@ -1312,7 +1284,7 @@ function HomeCategories() {
       number: '02',
       name: 'K-Classics',
       tagline: 'Throwback battle. 2016 and earlier only.',
-      desc: "The category you've been asking for. Cover groups perform to K-pop from 2016 and earlier — original soundtrack only, no intros or remixes. A tribute to the songs that started it all. Open to everyone, including groups competing in Open Stage.",
+      desc: "The category you've been asking for. Cover groups perform to K-pop from 2016 and earlier, original soundtrack only, no intros or remixes. A tribute to the songs that started it all. Open to everyone, including groups competing in Open Stage.",
       accent: '#C724FF',
       glyph: 'crown',
     },
@@ -1330,32 +1302,26 @@ function HomeCategories() {
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, var(--brand), transparent)',
           }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--brand)',
+          <span style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--brand)',
             fontWeight: 700,
           }}>
-            04 — EVENT CATEGORIES
+            EVENT CATEGORIES
           </span>
         </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
+        <h2 className="font-headline" style={{
+          fontSize: 'clamp(26px, 4.2vw, 54px)', lineHeight: 1.08,
+          margin: '0 0 24px', fontWeight: 800,
         }}>
-          Two ways to compete.{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>One stage.</span>
+          Where does your group{' '}
+          <span style={{ color: 'var(--brand)' }}>belong?</span>
         </h2>
         <p style={{
           fontSize: 'clamp(15px, 1.4vw, 18px)',
           lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 640,
         }}>
-          DKC 2026 has two ways to take the stage — Open Stage, our flagship competition, and
+          DKC 2026 has two ways to take the stage: Open Stage, our flagship competition, and
           K-Classics, the throwback battle. Pick your category, train for it, and bring it the night-of.
         </p>
       </div>
@@ -1369,6 +1335,19 @@ function HomeCategories() {
         {categories.map((cat) => (
           <CategoryCard key={cat.number} {...cat} />
         ))}
+      </div>
+
+      {/* Register handoff: performers shouldn't have to hunt the nav */}
+      <div style={{ marginTop: 36, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        <BrightCTA onClick={onOpenRegister} primary>
+          REGISTER YOUR ENTRY →
+        </BrightCTA>
+        <div style={{
+          fontFamily: "'Sora', sans-serif", fontSize: 11.5, letterSpacing: 1.5,
+          color: 'var(--text-muted)', fontWeight: 600,
+        }}>
+          REGISTRATION CLOSES <span style={{ color: 'var(--brand)' }}>JUL 27</span> · PARTICIPANT PAYMENT DUE <span style={{ color: 'var(--brand)' }}>AUG 15</span>
+        </div>
       </div>
     </section>
   );
@@ -1535,25 +1514,19 @@ function HomeTiers({ ticketTypes, addOns, onBuyTickets }) {
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, var(--brand), transparent)',
           }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--brand)',
+          <span style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--brand)',
             fontWeight: 700,
           }}>
-            01 — TICKETS
+            TICKETS
           </span>
         </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
+        <h2 className="font-headline" style={{
+          fontSize: 'clamp(26px, 4.2vw, 54px)', lineHeight: 1.08,
+          margin: '0 0 24px', fontWeight: 800,
         }}>
-          Two tiers.{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 70%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>One night.</span>
+          Pick your view of the{' '}
+          <span style={{ color: 'var(--brand)' }}>stage.</span>
         </h2>
         <p style={{
           fontSize: 'clamp(15px, 1.4vw, 18px)',
@@ -1718,7 +1691,7 @@ function HomeTiers({ ticketTypes, addOns, onBuyTickets }) {
               Rave Party Pass
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              ₱{Number(addOns[0].price).toLocaleString()} per attendee. Unlimited drinks. The official after-party of DKC 2026.
+              ₱{Number(addOns[0].price).toLocaleString()} per attendee. Drinks available. The official after-party of DKC 2026.
             </div>
           </div>
         </div>
@@ -1745,24 +1718,18 @@ function HomeKreation() {
             <span style={{
               width: 36, height: 1, background: 'linear-gradient(90deg, var(--brand-2), transparent)',
             }} />
-            <span className="font-mono" style={{
-              fontSize: 10, letterSpacing: 3, color: 'var(--brand-2)',
+            <span style={{
+              fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--brand-2)',
               fontWeight: 700,
             }}>
-              05 — ORGANIZED BY
+              ORGANIZED BY
             </span>
           </div>
-          <h2 className="font-display" style={{
-            fontSize: 'clamp(36px, 5vw, 64px)', lineHeight: 0.95,
-            margin: '0 0 24px', letterSpacing: -2, fontWeight: 800,
+          <h2 className="font-headline" style={{
+            fontSize: 'clamp(26px, 3.8vw, 48px)', lineHeight: 1.08,
+            margin: '0 0 24px', fontWeight: 800,
           }}>
-            Kreation <span style={{
-              background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              color: 'transparent',
-            }}>Philippines.</span>
+            Kreation <span style={{ color: 'var(--brand)' }}>Philippines.</span>
           </h2>
           <p style={{
             fontSize: 18, lineHeight: 1.5, color: 'var(--text)',
@@ -1776,13 +1743,13 @@ function HomeKreation() {
             fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-muted)', marginBottom: 16,
           }}>
             We're Davao's only trusted K-pop convention organizers. Since 2022, we've been bringing
-            K-pop enthusiasts together — locally and nationwide — across four years and five major events.
+            K-pop enthusiasts together, locally and nationwide, across four years and five major events.
           </p>
           <p style={{
             fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-muted)', marginBottom: 28,
           }}>
             Our goal goes beyond competition. We want people to connect, interact, and remember what
-            being a K-pop fan is really about. Yes, cover groups compete — but the experience is bigger.
+            being a K-pop fan is really about. Yes, cover groups compete, but the experience is bigger.
             The stages, the cosplays, the rave, the friendships made between rounds.
             <span style={{ color: 'var(--text)', fontWeight: 600 }}> That's what we build, every year.</span>
           </p>
@@ -1888,7 +1855,7 @@ const PAST_EVENTS = [
     photoPosition: '50% 40%',
     accent: '#FF1B6B',
     tagline: 'The one that started it all.',
-    sentimentalCopy: "It was 2022. The pandemic had just begun loosening its grip, and Davao's K-pop community was hungry to come back to a stage. We didn't know if anyone would show up. They did — packed crowd, three competing categories, a city that had been waiting two years to dance together again. This was the night Kreation Philippines became more than a one-off event. It became a tradition.",
+    sentimentalCopy: "It was 2022. The pandemic had just begun loosening its grip, and Davao's K-pop community was hungry to come back to a stage. We didn't know if anyone would show up. They did: packed crowd, three competing categories, a city that had been waiting two years to dance together again. This was the night Kreation Philippines became more than a one-off event. It became a tradition.",
     champions: [
       { category: 'Champions', winner: 'KryptoKnights' },
       { category: 'Rewind', winner: 'NYX PH' },
@@ -1904,7 +1871,7 @@ const PAST_EVENTS = [
     photoPosition: '50% 40%',
     accent: '#C724FF',
     tagline: 'Three lanes. One stage.',
-    sentimentalCopy: "Five months after Resurgence, we expanded the format. Queendom, Kingdom, and Hallyu Cosplay — three competitions in one night, each highlighting a different corner of K-pop fandom. The lobby was packed before the doors even opened. We knew then this wasn't just going to be a yearly thing — it was going to be a season.",
+    sentimentalCopy: "Five months after Resurgence, we expanded the format. Queendom, Kingdom, and Hallyu Cosplay: three competitions in one night, each highlighting a different corner of K-pop fandom. The lobby was packed before the doors even opened. We knew then this wasn't just going to be a yearly thing. It was going to be a season.",
     champions: [
       { category: 'Queendom', winner: 'Mystique' },
       { category: 'Kingdom', winner: 'OXEPRIME' },
@@ -1920,7 +1887,7 @@ const PAST_EVENTS = [
     photoPosition: '50% 30%',
     accent: '#00E5FF',
     tagline: 'Bigger groups. Sharper sets.',
-    sentimentalCopy: "Year two. The groups came back hungrier, the choreography got sharper, and we introduced Mega Crew — full-scale productions with whole dance teams on stage. This was the year ANADEM Entertainment took home their first Mega Crew title, a name that would keep coming back to our stages. Davao's K-pop scene was officially scaling up.",
+    sentimentalCopy: "Year two. The groups came back hungrier, the choreography got sharper, and we introduced Mega Crew: full-scale productions with whole dance teams on stage. This was the year ANADEM Entertainment took home their first Mega Crew title, a name that would keep coming back to our stages. Davao's K-pop scene was officially scaling up.",
     champions: [
       { category: 'Dance Off', winner: 'NYX PH' },
       { category: 'Rewind', winner: 'Charm Official' },
@@ -1936,7 +1903,7 @@ const PAST_EVENTS = [
     photoPosition: '50% 35%',
     accent: '#FF1B6B',
     tagline: 'The traditions take root.',
-    sentimentalCopy: "Our second Show Off. The same groups coming back to defend their titles. The same fans showing up two hours early. OXEPRIME took Kingdom for the second time in a row — the first dynasty we'd seen build itself across our events. Davao's K-pop scene had a calendar now, and we were on it.",
+    sentimentalCopy: "Our second Show Off. The same groups coming back to defend their titles. The same fans showing up two hours early. OXEPRIME took Kingdom for the second time in a row, the first dynasty we'd seen build itself across our events. Davao's K-pop scene had a calendar now, and we were on it.",
     champions: [
       { category: 'Queendom', winner: 'XSCAPE' },
       { category: 'Kingdom', winner: 'OXEPRIME' },
@@ -1952,7 +1919,7 @@ const PAST_EVENTS = [
     photoPosition: '50% 50%',
     accent: '#C724FF',
     tagline: 'The year ends in lights.',
-    sentimentalCopy: "Our flagship. A year-end ceremony built to honor everyone who showed up in 2024 — the groups, the fans, the judges, the volunteers. Four categories, four champions, and the loudest crowd we've ever stood in front of. ANADEM Entertainment defended their Mega Crew title. The Glitz proved Seniors can still set the bar. This is the energy we're carrying into 2026.",
+    sentimentalCopy: "Our flagship. A year-end ceremony built to honor everyone who showed up in 2024: the groups, the fans, the judges, the volunteers. Four categories, four champions, and the loudest crowd we've ever stood in front of. ANADEM Entertainment defended their Mega Crew title. The Glitz proved Seniors can still set the bar. This is the energy we're carrying into 2026.",
     champions: [
       { category: 'Rookies', winner: 'XYNYX' },
       { category: 'Seniors', winner: 'The Glitz' },
@@ -2065,7 +2032,7 @@ function MysteryCard() {
           fontSize: 13, color: 'rgba(255,255,255,0.75)',
           lineHeight: 1.55, marginBottom: 14,
         }}>
-          Your group could be on this wall forever. Win a category — secure permanent bragging rights and a spot in Hall of Fame history.
+          Your group could be on this wall forever. Win a category to secure permanent bragging rights and a spot in Hall of Fame history.
         </div>
         <div style={{
           paddingTop: 14,
@@ -2101,32 +2068,26 @@ function HomePastEvents({ onOpenEvent }) {
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, var(--brand), transparent)',
           }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--brand)',
+          <span style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--brand)',
             fontWeight: 700,
           }}>
-            02 — HALL OF FAME
+            HALL OF FAME
           </span>
         </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 6vw, 80px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2.5, fontWeight: 800,
+        <h2 className="font-headline" style={{
+          fontSize: 'clamp(26px, 4.2vw, 54px)', lineHeight: 1.08,
+          margin: '0 0 24px', fontWeight: 800,
         }}>
-          Four years. Five events.{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>20+ champions.</span>
+          Every champion since{' '}
+          <span style={{ color: 'var(--brand)' }}>2022.</span>
         </h2>
         <p style={{
           fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 640,
         }}>
           Since 2022, our stages have crowned champions across every category we've run.
-          These are the nights that made it — click any event to see the champions who walked away with the title.
+          These are the nights that made it. Click any event to see the champions who walked away with the title.
         </p>
       </div>
 
@@ -2164,10 +2125,10 @@ function HomePastEvents({ onOpenEvent }) {
           }}>
             ★ NEXT CHAPTER · AUGUST 22, 2026
           </div>
-          <div className="font-display" style={{
-            fontSize: 'clamp(28px, 4vw, 48px)', lineHeight: 1.05,
-            letterSpacing: -1.5, fontWeight: 800, color: 'var(--text)',
-            maxWidth: 720,
+          <div className="font-headline" style={{
+            fontSize: 'clamp(22px, 3vw, 38px)', lineHeight: 1.12,
+            fontWeight: 800, color: 'var(--text)',
+            maxWidth: 760,
           }}>
             Where the next champions write themselves in.
           </div>
@@ -2654,11 +2615,11 @@ function HomeFAQ({ event }) {
   const faqs = [
     {
       q: 'How do I pay for my ticket?',
-      a: "After picking your seats and filling in your details, you'll send payment via GCash, Maya, or bank transfer using the account shown at checkout. Upload your receipt, and our team verifies it within 24 hours. You'll get an email confirmation with your ticket once it's approved.",
+      a: "After picking your seats and filling in your details, you'll send payment via GCash, Maya, or bank transfer using the account shown at checkout. Upload your receipt, and our team verifies it within 24 hours. You'll get an email confirmation once it's approved, and your tickets are released to the same email 24 hours before event day.",
     },
     {
-      q: "When and where do I pick up my ticket?",
-      a: "After your payment is verified, you'll pick a Friday slot from May 15 to August 21, 2026 — 5 PM to 9 PM at Work Co Claveria Branch, Davao City. Bring a valid ID and your order number.",
+      q: "When do I get my ticket?",
+      a: "Tickets are digital. Once your payment is verified, your ticket QR will be released to the email on your order 24 hours before event day. No pickup needed. Just show the QR at the entrance with a valid ID.",
     },
     {
       q: "What's included with the VIP ticket?",
@@ -2670,11 +2631,11 @@ function HomeFAQ({ event }) {
     },
     {
       q: "What is the Rave Party Pass?",
-      a: "An optional add-on (₱450 per attendee) that gets you into the official after-party of DKC 2026. Unlimited drinks all night. Add it per-attendee at checkout.",
+      a: "An optional add-on (₱450 per attendee) that gets you into the official after-party of DKC 2026. Drinks available all night. Add it per-attendee at checkout.",
     },
     {
       q: "Where is the venue exactly?",
-      a: "CAP Grand Auditorium — " + (event && event.venue_address ? event.venue_address : "37 Iñigo Street, Poblacion District, Davao City."),
+      a: "CAP Grand Auditorium, " + (event && event.venue_address ? event.venue_address : "37 Iñigo Street, Poblacion District, Davao City."),
     },
     {
       q: "Can I get a refund?",
@@ -2696,25 +2657,19 @@ function HomeFAQ({ event }) {
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, var(--accent), transparent)',
           }} />
-          <span className="font-mono" style={{
-            fontSize: 10, letterSpacing: 3, color: 'var(--accent)',
+          <span style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5, color: 'var(--accent)',
             fontWeight: 700,
           }}>
-            06 — FAQ
+            FAQ
           </span>
         </div>
-        <h2 className="font-display" style={{
-          fontSize: 'clamp(36px, 5vw, 60px)', lineHeight: 0.95,
-          margin: '0 0 24px', letterSpacing: -2, fontWeight: 800,
+        <h2 className="font-headline" style={{
+          fontSize: 'clamp(24px, 3.6vw, 44px)', lineHeight: 1.08,
+          margin: '0 0 24px', fontWeight: 800,
         }}>
           Things you might be{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 70%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>asking.</span>
+          <span style={{ color: 'var(--brand)' }}>asking.</span>
         </h2>
         <p style={{
           fontSize: 15, lineHeight: 1.7, color: 'var(--text-muted)',
@@ -2838,6 +2793,46 @@ function LiveActivityToast() {
 // ============================================================
 // STICKY MOBILE CTA — appears after scrolling past hero
 // ============================================================
+function HomeFinalCTA({ onBuyTickets }) {
+  return (
+    <section style={{ position: 'relative', padding: '40px 20px 90px', maxWidth: 1240, margin: '0 auto' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        borderRadius: 24, padding: 'clamp(36px, 5vw, 64px)',
+        border: '1px solid rgba(255,27,107,0.25)',
+        background: 'linear-gradient(135deg, rgba(255,27,107,0.10), rgba(199,36,255,0.06) 60%, rgba(8,2,15,0))',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          position: 'absolute', top: -120, left: '50%', transform: 'translateX(-50%)',
+          width: 460, height: 460, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,27,107,0.16), transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            fontFamily: "'Sora', sans-serif", fontSize: 11, letterSpacing: 2.5,
+            color: 'var(--brand)', fontWeight: 700, marginBottom: 16,
+          }}>
+            AUGUST 22, 2026 · CAP GRAND AUDITORIUM
+          </div>
+          <div className="font-headline" style={{
+            fontSize: 'clamp(22px, 3.2vw, 40px)', lineHeight: 1.12,
+            fontWeight: 800, color: 'var(--text)', margin: '0 auto 26px', maxWidth: 720,
+          }}>
+            The floor is waiting. <span style={{ color: 'var(--brand)' }}>See you there.</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <BrightCTA onClick={onBuyTickets} primary>
+              GET TICKETS →
+            </BrightCTA>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StickyMobileCTA({ onBuyTickets }) {
   const [show, setShow] = React.useState(false);
 
@@ -2882,7 +2877,7 @@ function StickyMobileCTA({ onBuyTickets }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         }}
       >
-        GET TICKETS — FROM ₱230 →
+        GET TICKETS · FROM ₱230 →
       </button>
     </div>
   );
@@ -2913,7 +2908,7 @@ function HomeFooter() {
           <p style={{
             fontSize: 13, lineHeight: 1.65, color: 'var(--text-muted)', margin: 0, maxWidth: 280,
           }}>
-            Kreation Philippines — Davao's home for K-pop conventions, cover competitions, and the city's loudest stages.
+            Kreation Philippines: Davao's home for K-pop conventions, cover competitions, and the city's loudest stages.
           </p>
         </div>
 
@@ -3012,17 +3007,17 @@ function CompeteScreen({ event, onBackHome, onBuyTickets }) {
         name="K-Classics"
         accent="#C724FF"
         tagline="The throwback battle. 2016 and earlier."
-        eligibility="A tribute to the songs that started it all. Cover groups perform to K-pop released in 2016 or earlier. Open to everyone — including groups already competing in Open Stage. One group takes the K-Classics Champion title."
+        eligibility="A tribute to the songs that started it all. Cover groups perform to K-pop released in 2016 or earlier. Open to everyone, including groups already competing in Open Stage. One group takes the K-Classics Champion title."
         rules={[
           'You need at least 4 people in your group. Solo artists can join too, but you need at least 3 backup dancers (4 people total).',
           'Your music must be from 2016 or earlier.',
-          'Use the original soundtrack only. No intros, no remixes — the music should come straight from the original track.',
-          'Groups from the other category are welcome to join K-Classics. But no group-hopping within K-Classics itself — one entry per group here.',
+          'Use the original soundtrack only. No intros, no remixes. The music should come straight from the original track.',
+          'Groups from the other category are welcome to join K-Classics. But no group-hopping within K-Classics itself. One entry per group here.',
           'You have to show up for orientation, blockings, and rehearsals, and pay your registration fee by the deadline.',
           'Get to the venue on time. If your group is called and you\'re not on stage, you\'re out.',
           'If a costume slips and shows too much skin, you lose points. Do dress rehearsals to catch costume problems early.',
           'Props that are dangerous or that could delay the program are not allowed.',
-          'Groups that back out after the participant list is posted still have to pay the registration fee. This keeps the cash prizes stable and keeps things fair for everyone who committed — so make sure you\'re committed before you submit.',
+          'Groups that back out after the participant list is posted still have to pay the registration fee. This keeps the cash prizes stable and keeps things fair for everyone who committed, so make sure you\'re committed before you submit.',
           'The judges\' decision is final and cannot be appealed.',
         ]}
       />
@@ -3090,35 +3085,20 @@ function CompeteHero() {
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 900 }}>
         <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 12,
-          padding: '8px 16px',
-          background: 'rgba(255,27,107,0.08)',
-          border: '1px solid rgba(255,27,107,0.4)',
-          borderRadius: 4,
-          fontSize: 10, fontWeight: 700, letterSpacing: 3,
+          fontSize: 11, fontWeight: 700, letterSpacing: 2.5,
           color: 'var(--brand)',
-          fontFamily: 'JetBrains Mono, monospace',
+          fontFamily: 'Sora, sans-serif',
           marginBottom: 28,
         }}>
-          <span style={{
-            width: 6, height: 6, background: 'var(--brand)', borderRadius: '50%',
-            boxShadow: '0 0 10px var(--brand)',
-          }} />
-          FOR COMPETING CREWS & ENTERTAINMENTS
+          FOR COMPETING GROUPS & ENTERTAINMENTS
         </div>
 
-        <h1 className="font-display" style={{
-          fontSize: 'clamp(44px, 7vw, 96px)', lineHeight: 0.95,
-          margin: '0 0 28px', letterSpacing: -3, fontWeight: 800,
+        <h1 className="font-headline" style={{
+          fontSize: 'clamp(30px, 5vw, 64px)', lineHeight: 1.06,
+          margin: '0 0 28px', fontWeight: 800,
         }}>
           Event{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
-          }}>Mechanics.</span>
+          <span style={{ color: 'var(--brand)' }}>Mechanics.</span>
         </h1>
 
         <p style={{
@@ -3126,7 +3106,7 @@ function CompeteHero() {
           lineHeight: 1.7, color: 'var(--text-muted)',
           margin: '0 0 32px', maxWidth: 720,
         }}>
-          Everything you need to know if you're competing — rules, how we judge, point system,
+          Everything you need to know if you're competing: rules, how we judge, point system,
           prizes, and how to register. Read carefully before you sign up. Once you submit your
           entry, you commit to paying the registration fee.
         </p>
@@ -3138,7 +3118,8 @@ function CompeteHero() {
           <MetaItem label="EVENT" value="Davao K-Pop Convention 2026" />
           <MetaItem label="DATE" value="Aug 22, 2026 · SAT" />
           <MetaItem label="VENUE" value="CAP Grand Auditorium" />
-          <MetaItem label="REG DEADLINE" value="Aug 15, 2026" />
+          <MetaItem label="REG DEADLINE" value="Jul 27, 2026" />
+          <MetaItem label="PAYMENT DEADLINE" value="Aug 15, 2026" />
         </div>
       </div>
     </section>
@@ -3212,7 +3193,7 @@ function CategoryRules({ id, number, name, accent, tagline, eligibility, rules }
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: accent, fontWeight: 700,
           }}>
-            {number} — CATEGORY
+            {number} · CATEGORY
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -3304,7 +3285,7 @@ function JudgingCriteria() {
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: '#FFB84D', fontWeight: 700,
           }}>
-            05 — JUDGING CRITERIA
+            05 · JUDGING CRITERIA
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -3350,7 +3331,7 @@ function JudgingCriteria() {
             name: 'IDOL FACTOR & STAGE PRESENCE',
             weight: '30%',
             points: [
-              'You bring confidence the whole time — in your face, eyes, and body.',
+              'You bring confidence the whole time: in your face, eyes, and body.',
               'You perform with real energy and passion. You "sell it" like an idol would.',
               'Your attitude, posture, and style fit the stage.',
               'Your costume matches the K-pop group you\'re covering.',
@@ -3473,7 +3454,7 @@ function PrizeBreakdown() {
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: '#FFB84D', fontWeight: 700,
           }}>
-            07 — PRIZE BREAKDOWN
+            07 · PRIZE BREAKDOWN
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -3486,7 +3467,7 @@ function PrizeBreakdown() {
           fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)',
           margin: 0, maxWidth: 760,
         }}>
-          Two categories. Two champions. Open Stage takes ₱25,000, K-Classics takes ₱10,000 —
+          Two categories. Two champions. Open Stage takes ₱25,000, K-Classics takes ₱10,000,
           and both winners get a free pass to Davao K-Pop Convention's official after-party.
         </p>
       </div>
@@ -3560,7 +3541,7 @@ function RegistrationPolicy() {
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
           }}>
-            08 — REGISTRATION & DEADLINES
+            08 · REGISTRATION & DEADLINES
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -3584,7 +3565,7 @@ function RegistrationPolicy() {
           fontSize: 10, letterSpacing: 2.5, color: 'var(--brand)',
           fontWeight: 700, marginBottom: 12,
         }}>
-          ⚠ IMPORTANT — BACK-OUT POLICY
+          ⚠ IMPORTANT: BACK-OUT POLICY
         </div>
         <div style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--text)' }}>
           If you back out after we publish the participant list, you still have to pay the
@@ -3592,7 +3573,7 @@ function RegistrationPolicy() {
           takes their spot seriously.
           <br /><br />
           If your group drops out, the <strong>group leader</strong> is responsible for the
-          fees. Talk to all your members BEFORE you submit — make sure everyone is in.
+          fees. Talk to all your members BEFORE you submit and make sure everyone is in.
         </div>
       </div>
 
@@ -4081,7 +4062,7 @@ function RegistrationForm({ event }) {
           <span className="font-mono" style={{
             fontSize: 11, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
           }}>
-            09 — REGISTER YOUR ENTRY
+            09 · REGISTER YOUR ENTRY
           </span>
           <span style={{
             width: 36, height: 1, background: 'linear-gradient(90deg, #FF1B6B, transparent)',
@@ -4335,7 +4316,7 @@ function RegistrationForm({ event }) {
               value={form.song_or_idol}
               onChange={update('song_or_idol')}
               required
-              placeholder='e.g. "Maestro" — SEVENTEEN'
+              placeholder='e.g. "Maestro" by SEVENTEEN'
               style={inputStyle}
             />
           </FormField>
@@ -4626,7 +4607,7 @@ function TermsContent() {
     {
       number: '08',
       title: 'CHANGES, CANCELLATIONS, AND FORCE MAJEURE',
-      body: 'KPH reserves the right to change the event date, time, venue, format, judging panel, prize structure, or any other element of the event without prior notice. In the event of cancellation or postponement due to circumstances beyond KPH\'s reasonable control — including natural disasters, severe weather, pandemic-related restrictions, government orders, civil unrest, venue unavailability, or other force majeure events — KPH shall not be liable for any losses incurred by participants. KPH will make reasonable efforts to reschedule; refunds are not guaranteed.',
+      body: 'KPH reserves the right to change the event date, time, venue, format, judging panel, prize structure, or any other element of the event without prior notice. In the event of cancellation or postponement due to circumstances beyond KPH\'s reasonable control, including natural disasters, severe weather, pandemic-related restrictions, government orders, civil unrest, venue unavailability, or other force majeure events — KPH shall not be liable for any losses incurred by participants. KPH will make reasonable efforts to reschedule; refunds are not guaranteed.',
     },
     {
       number: '09',
@@ -4797,7 +4778,7 @@ const CONDUCT_RULES = [
   { id: 'alcohol', text: 'No alcohol. I will not drink or bring alcoholic drinks to any KPH event.' },
   { id: 'smoking', text: 'No smoking or vaping. I will not smoke or vape at any KPH event venue.' },
   { id: 'substances', text: 'No illegal substances. I will not use, carry, or share illegal substances.' },
-  { id: 'sportsmanship', text: 'I will be a good sport — win or lose, I will conduct myself with respect.' },
+  { id: 'sportsmanship', text: 'I will be a good sport. Win or lose, I will conduct myself with respect.' },
   { id: 'judges', text: 'I will respect the judges. Results are final and I will not dispute them publicly.' },
   { id: 'participants', text: 'I will respect all fellow participants, attendees, organizers, and staff.' },
   { id: 'mechanics', text: 'I will follow every event mechanic, rule, and instruction set by KPH.' },
@@ -4958,25 +4939,19 @@ function BanRevokeHero() {
       }}>
         FOR PREVIOUSLY BANNED INDIVIDUALS & GROUPS
       </div>
-      <h1 className="font-display" style={{
-        fontSize: 'clamp(36px, 6vw, 76px)', lineHeight: 0.95,
-        margin: '0 0 28px', letterSpacing: -2.5, fontWeight: 800,
+      <h1 className="font-headline" style={{
+        fontSize: 'clamp(28px, 4.5vw, 56px)', lineHeight: 1.06,
+        margin: '0 0 28px', fontWeight: 800,
       }}>
         Apply to{' '}
-        <span style={{
-          background: 'linear-gradient(90deg, #FF1B6B, #C724FF 60%, #00E5FF)',
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          color: 'transparent',
-        }}>return.</span>
+        <span style={{ color: 'var(--brand)' }}>return.</span>
       </h1>
       <div style={{
         fontSize: 15, lineHeight: 1.75, color: 'var(--text-muted)',
         maxWidth: 760, marginBottom: 24,
       }}>
         <p style={{ margin: '0 0 14px' }}>
-          For four years, we've built K-pop events with one goal — a space where fans can gather,
+          For four years, we've built K-pop events with one goal: a space where fans can gather,
           celebrate, and feel at home. Along the way, we've made hard decisions. Some people and
           groups were banned for violating our community conduct. Those calls were never made lightly.
         </p>
@@ -5026,7 +5001,7 @@ function BanRevokeStepRead({ agreedConduct, toggleRule, allAgreed, onProceed, er
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
           }}>
-            STEP 1 OF 3 — CODE OF CONDUCT
+            STEP 1 OF 3 · CODE OF CONDUCT
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -5122,7 +5097,7 @@ function BanRevokeStepRead({ agreedConduct, toggleRule, allAgreed, onProceed, er
           opacity: allAgreed ? 1 : 0.6,
         }}
       >
-        {allAgreed ? 'I AGREE — CONTINUE TO APPLICATION →' : 'CHECK ALL 8 RULES TO CONTINUE'}
+        {allAgreed ? 'I AGREE, CONTINUE TO APPLICATION →' : 'CHECK ALL 8 RULES TO CONTINUE'}
       </button>
     </section>
   );
@@ -5160,7 +5135,7 @@ function BanRevokeStepForm({ form, update, setForm, fridays, onSubmit, submittin
           <span className="font-mono" style={{
             fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700,
           }}>
-            STEP 2 OF 3 — APPLICATION
+            STEP 2 OF 3 · APPLICATION
           </span>
         </div>
         <h2 className="font-display" style={{
@@ -5242,8 +5217,8 @@ function BanRevokeStepForm({ form, update, setForm, fridays, onSubmit, submittin
         </div>
 
         <FormField
-          label="PREVIOUS BAN — WHAT HAPPENED?"
-          hint="Briefly describe the situation that led to your ban. Be honest — this isn't to relitigate, just to make sure we're on the same page."
+          label="PREVIOUS BAN: WHAT HAPPENED?"
+          hint="Briefly describe the situation that led to your ban. Be honest. This isn't to relitigate, just to make sure we're on the same page."
         >
           <textarea
             value={form.previous_ban_reason}
@@ -5295,7 +5270,7 @@ function BanRevokeStepForm({ form, update, setForm, fridays, onSubmit, submittin
               selected={form.location === 'remote'}
               onClick={() => setForm({ ...form, location: 'remote' })}
               title="Outside Davao"
-              subtitle="Video call — we'll email you the invite"
+              subtitle="Video call. We'll email you the invite"
             />
           </div>
         </div>
@@ -5532,12 +5507,12 @@ function BanRevokeStepSuccess({ application }) {
       if (application.contact_phone) { doc.text('Phone: ' + application.contact_phone, margin, y); y += 14; }
       if (application.date_of_birth) { doc.text('Date of Birth: ' + application.date_of_birth, margin, y); y += 14; }
       doc.text('Meeting Date: ' + application.meeting_date + ' at ' + application.meeting_time, margin, y); y += 14;
-      doc.text('Meeting Format: ' + (application.location === 'davao' ? 'In-Person — Work Co Claveria Branch, Davao City' : 'Remote — Video Call'), margin, y); y += 22;
+      doc.text('Meeting Format: ' + (application.location === 'davao' ? 'In-Person: Work Co Claveria Branch, Davao City' : 'Remote: Video Call'), margin, y); y += 22;
 
       // Code of conduct intro
       doc.setFont('times', 'bold');
       doc.setFontSize(11);
-      doc.text('CODE OF CONDUCT — REVIEW AND ACKNOWLEDGMENT', margin, y); y += 14;
+      doc.text('CODE OF CONDUCT: REVIEW AND ACKNOWLEDGMENT', margin, y); y += 14;
       doc.setFont('times', 'normal');
       doc.setFontSize(10.5);
       const intro = doc.splitTextToSize(
@@ -5664,7 +5639,7 @@ function BanRevokeStepSuccess({ application }) {
         <div className="font-mono" style={{
           fontSize: 10, letterSpacing: 3, color: 'var(--brand)', fontWeight: 700, marginBottom: 8,
         }}>
-          STEP 3 OF 3 — APPLICATION RECEIVED
+          STEP 3 OF 3 · APPLICATION RECEIVED
         </div>
         <h3 className="font-display" style={{
           fontSize: 32, fontWeight: 800, letterSpacing: -1,
@@ -5676,7 +5651,7 @@ function BanRevokeStepSuccess({ application }) {
           fontSize: 15, lineHeight: 1.65, color: 'var(--text-muted)',
           margin: '0 auto', maxWidth: 540,
         }}>
-          We've received your application. Your meeting is scheduled — we'll confirm via email
+          We've received your application. Your meeting is scheduled. We'll confirm via email
           shortly. Your signed agreement PDF should download automatically.
         </p>
       </div>
@@ -5708,7 +5683,7 @@ function BanRevokeStepSuccess({ application }) {
             <strong style={{ color: 'var(--text)' }}>
               {application.location === 'davao'
                 ? 'In-person at Work Co Claveria, Davao City'
-                : 'Remote video call — invite will be emailed'}
+                : 'Remote video call, invite will be emailed'}
             </strong>
           </div>
         </div>
@@ -5731,7 +5706,7 @@ function BanRevokeStepSuccess({ application }) {
           margin: 0, paddingLeft: 22, fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-muted)',
         }}>
           <li style={{ marginBottom: 10 }}>
-            <strong style={{ color: 'var(--text)' }}>Download your signed agreement PDF</strong> —
+            <strong style={{ color: 'var(--text)' }}>Download your signed agreement PDF</strong>:
             it should start downloading automatically. If not, click the button below.
           </li>
           <li style={{ marginBottom: 10 }}>
@@ -5796,14 +5771,12 @@ function App() {
   const [event, setEvent] = useState(null);
   const [ticketTypes, setTicketTypes] = useState([]);
   const [addOns, setAddOns] = useState([]);
-  const [pickupSlots, setPickupSlots] = useState([]);
   const [seats, setSeats] = useState([]);
   const [takenSeatIds, setTakenSeatIds] = useState(new Set());
 
   // Cart state
   const [cart, setCart] = useState({});       // { ticketTypeId: quantity }
   const [attendees, setAttendees] = useState([]); // [{ name, ticketTypeId, hasRaveParty, seatId? }]
-  const [pickupSlotId, setPickupSlotId] = useState(null);
   const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' });
   const [paymentRef, setPaymentRef] = useState('');
   const [receiptFile, setReceiptFile] = useState(null);
@@ -5815,11 +5788,10 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [evR, ttR, aR, psR, sR, osR, oR] = await Promise.all([
+        const [evR, ttR, aR, sR, osR, oR] = await Promise.all([
           supabase.from('events').select('*').eq('is_active', true).limit(1).maybeSingle(),
           supabase.from('ticket_types').select('*').order('display_order'),
           supabase.from('add_ons').select('*').eq('is_active', true).order('display_order'),
-          supabase.from('pickup_slots').select('*').eq('is_active', true).order('slot_date'),
           supabase.from('seats').select('*').order('row_label').order('seat_number'),
           supabase.from('order_seats').select('seat_id, orders!inner(status)'),
           supabase.from('orders').select('id, status').in('status', ['awaiting_verification', 'confirmed', 'pending_payment'])
@@ -5834,7 +5806,6 @@ function App() {
         });
         setTicketTypes(filteredTypes);
         setAddOns(aR.data || []);
-        setPickupSlots(psR.data || []);
         setSeats(sR.data || []);
 
         // Build set of taken seat IDs (seats in active orders)
@@ -6075,10 +6046,9 @@ function App() {
           <>
             <StepProgress current={needSeats ? 4 : 3} needSeats={needSeats} />
             <DetailsStep
-              pickupSlots={pickupSlots}
-              pickupSlotId={pickupSlotId} setPickupSlotId={setPickupSlotId}
               buyer={buyer} setBuyer={setBuyer}
               totals={totals}
+              stepNo={needSeats ? 4 : 3}
               onNext={goNext} onBack={goBack}
             />
           </>
@@ -6087,12 +6057,12 @@ function App() {
           <>
             <StepProgress current={needSeats ? 5 : 4} needSeats={needSeats} />
             <PaymentStep
+              stepNo={needSeats ? 5 : 4}
               event={event} totals={totals}
               paymentRef={paymentRef} setPaymentRef={setPaymentRef}
               receiptFile={receiptFile} setReceiptFile={setReceiptFile}
               submitting={submitting} submitError={submitError}
               attendees={attendees} buyer={buyer}
-              pickupSlotId={pickupSlotId}
               ticketTypes={ticketTypes} addOns={addOns}
               onBack={goBack}
               onSubmit={async () => {
@@ -6100,9 +6070,9 @@ function App() {
                 try {
                   const order = await submitOrder({
                     event, ticketTypes, addOns, attendees, buyer,
-                    pickupSlotId, paymentRef, receiptFile, totals
+                    paymentRef, receiptFile, totals
                   });
-                  setSubmittedOrder(order);
+                  setSubmittedOrder({ ...order, buyer_email: buyer.email.trim().toLowerCase() });
                   setStep('done');
                 } catch (err) {
                   console.error('[Submit error]', err);
@@ -6124,7 +6094,7 @@ function App() {
 // ============================================================
 async function submitOrder({
   event, ticketTypes, addOns, attendees, buyer,
-  pickupSlotId, paymentRef, receiptFile, totals
+  paymentRef, receiptFile, totals
 }) {
   // 1. Upload receipt to storage first
   const ext = receiptFile.name.split('.').pop().toLowerCase();
@@ -6137,7 +6107,7 @@ async function submitOrder({
   const insOrder = await supabase.from('orders').insert({
     event_id: event.id,
     ticket_type_id: primaryTicketTypeId,
-    pickup_slot_id: pickupSlotId,
+    pickup_slot_id: null,
     buyer_name: buyer.name.trim(),
     buyer_email: buyer.email.trim().toLowerCase(),
     buyer_phone: buyer.phone.trim(),
@@ -6565,7 +6535,7 @@ function AttendeesStep({ attendees, setAttendees, ticketTypes, ravePrice, totals
 
   const ttName = (id) => {
     const t = ticketTypes.find(tt => tt.id === id);
-    return t ? t.name : '—';
+    return t ? t.name : '-';
   };
 
   // Group attendees by ticket type for numbering
@@ -6760,7 +6730,7 @@ function SeatsStep({ seats, takenSeatIds, vipAttendees, attendees, setAttendees,
           borderRadius: 8, color: '#FFD380',
           fontSize: 13, fontWeight: 600, textAlign: 'center',
         }}>
-          Seat unavailable — please pick another.
+          Seat unavailable. Please pick another.
         </div>
       )}
 
@@ -6896,11 +6866,10 @@ function LegendDot({ color, gradient, label, border }) {
 }
 
 // ============================================================
-// DETAILS STEP (pickup + buyer info)
+// DETAILS STEP (buyer info)
 // ============================================================
-function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuyer, totals, onNext, onBack }) {
+function DetailsStep({ buyer, setBuyer, totals, stepNo, onNext, onBack }) {
   const valid =
-    pickupSlotId &&
     buyer.name.trim().length >= 2 &&
     buyer.email.trim().includes('@') &&
     buyer.phone.trim().length >= 7;
@@ -6908,32 +6877,10 @@ function DetailsStep({ pickupSlots, pickupSlotId, setPickupSlotId, buyer, setBuy
   return (
     <Card>
       <SectionTitle
-        eyebrow="Step 4"
-        title="Pickup & contact"
-        subtitle="When can you pick up your physical tickets? We'll also send confirmation to your email."
+        eyebrow={'Step ' + (stepNo || 3)}
+        title="Contact details"
+        subtitle="Your tickets and confirmation go to this email. Double-check it's correct."
       />
-
-      <SubLabel iconName="calendar">PICKUP DATE</SubLabel>
-      <select value={pickupSlotId || ''} onChange={(e) => setPickupSlotId(e.target.value || null)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 14, marginBottom: 18, boxSizing: 'border-box', appearance: 'none' }}>
-        <option value="">Choose a Friday...</option>
-        {pickupSlots.map(s => (
-          <option key={s.id} value={s.id}>
-            {formatDate(s.slot_date, { weekday: 'long', year: true })} · {formatTime(s.slot_start)} – {formatTime(s.slot_end)}
-          </option>
-        ))}
-      </select>
-      {pickupSlotId && (
-        <div style={{
-          padding: '10px 12px', background: 'rgba(0, 229, 255, 0.06)',
-          border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: 8,
-          fontSize: 12, color: 'var(--accent)', marginBottom: 22,
-          display: 'flex', alignItems: 'center', gap: 8
-        }}>
-          <Icon name="pin" size={13} />
-          {pickupSlots.find(s => s.id === pickupSlotId)?.location}
-        </div>
-      )}
 
       <SubLabel iconName="user">YOUR NAME</SubLabel>
       <input type="text" value={buyer.name} onChange={(e) => setBuyer({ ...buyer, name: e.target.value })}
@@ -6984,8 +6931,9 @@ const SubLabel = ({ iconName, children }) => (
 // PAYMENT STEP
 // ============================================================
 function PaymentStep({
+  stepNo,
   event, totals, paymentRef, setPaymentRef, receiptFile, setReceiptFile,
-  submitting, submitError, attendees, buyer, pickupSlotId, ticketTypes, addOns,
+  submitting, submitError, attendees, buyer, ticketTypes, addOns,
   onBack, onSubmit
 }) {
   const fileRef = useRef(null);
@@ -7006,7 +6954,7 @@ function PaymentStep({
   return (
     <Card>
       <SectionTitle
-        eyebrow="Step 5"
+        eyebrow={'Step ' + (stepNo || 5)}
         title="Pay & submit"
         subtitle="Send the exact total via GCash, then enter your reference number and upload a receipt screenshot."
       />
@@ -7025,8 +6973,8 @@ function PaymentStep({
             {peso(totals.total)}
           </div>
         </div>
-        <PayRow label="ACCOUNT NAME" value={gcash.account_name || '—'} onCopy={() => copy(gcash.account_name)} />
-        <PayRow label="NUMBER" value={gcash.account_number || '—'} mono onCopy={() => copy(gcash.account_number)} />
+        <PayRow label="ACCOUNT NAME" value={gcash.account_name || '-'} onCopy={() => copy(gcash.account_name)} />
+        <PayRow label="NUMBER" value={gcash.account_number || '-'} mono onCopy={() => copy(gcash.account_number)} />
         {gcash.instructions && (
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 12, lineHeight: 1.55 }}>
             {gcash.instructions}
@@ -7205,7 +7153,7 @@ function DoneScreen({ order, event, onReturnHome }) {
             You're <span className="grad-text-tight">in!</span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
-            We'll review your payment within 24 hours. You'll get a confirmation email at <strong style={{ color: 'var(--text)' }}>{order.buyer_email}</strong> when your tickets are ready.
+            We'll review your payment within 24 hours and email your confirmation to <strong style={{ color: 'var(--text)' }}>{order.buyer_email}</strong>. Your tickets will be released to that same email <strong style={{ color: 'var(--text)' }}>24 hours before event day</strong>.
           </div>
           <div style={{
             padding: 16, borderRadius: 12,
@@ -7220,7 +7168,7 @@ function DoneScreen({ order, event, onReturnHome }) {
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 22 }}>
-            Save your order number for pickup. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
+            Keep your order number handy for any questions. See you at <strong style={{ color: 'var(--text-muted)' }}>{event.venue_name}</strong> on <strong style={{ color: 'var(--text-muted)' }}>{formatDate(event.event_date, { year: true })}</strong>.
           </div>
           {onReturnHome && (
             <button onClick={onReturnHome} style={{

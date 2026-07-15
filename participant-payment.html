@@ -453,15 +453,12 @@ function LookupStep({ regCodeInput, setRegCodeInput, lookupError, lookingUp, onS
         STEP 1 OF 3
       </div>
       <h1 className="font-display" style={{
-        fontSize: 28, lineHeight: 1.15, margin: 0, marginBottom: 14,
-        background: 'linear-gradient(135deg, #FFFFFF 0%, #FF6FA8 50%, #C724FF 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
+        fontSize: 28, lineHeight: 1.15, margin: 0, marginBottom: 14, color: 'var(--text)',
       }}>
-        Pay your performer registration fee.
+        Pay your performer <span style={{ color: 'var(--brand)' }}>registration fee.</span>
       </h1>
       <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 28, fontSize: 15 }}>
-        Enter the registration ID your group leader received when you registered. You{'\u2019'}ll then tick which members you{'\u2019'}re paying for.
+        Enter the registration ID your group leader received when you registered. You{'\u2019'}ll then tick which members you{'\u2019'}re paying for. Payment is due on or before <span style={{ color: 'var(--text)', fontWeight: 600 }}>August 15, 2026</span>.
       </p>
 
       <form onSubmit={handleSubmit} style={{
@@ -929,7 +926,7 @@ function SuccessStep({ registration, selectedCount, totalAmount }) {
           <li>Admin verifies your payment within 24 hours.</li>
           <li>The members you paid for will be marked as paid in our system.</li>
           <li>Once <strong style={{ color: 'var(--text)' }}>all members</strong> of your group are paid, your tickets are issued.</li>
-          <li>Tickets are emailed to your group leader as a PDF closer to the event.</li>
+          <li>Tickets will be released to your group leader's email on file <strong style={{ color: 'var(--text)' }}>24 hours before event day</strong>.</li>
         </ul>
       </div>
 
