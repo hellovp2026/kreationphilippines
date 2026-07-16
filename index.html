@@ -6093,7 +6093,7 @@ async function submitOrder({
   // still blocks any real double-booking at insert time.
   const chosenSeatIds = attendees.filter(a => a.seatId).map(a => a.seatId);
   if (chosenSeatIds.length > 0) {
-    const chk = await supabase.rpc('seats_taken', { p_seat_ids: chosenSeatIds }).catch(() => null);
+    const chk = await supabase.rpc('seats_taken', { p_seat_ids: chosenSeatIds }).then(r => r, () => null);
     if (chk && !chk.error && Array.isArray(chk.data) && chk.data.length > 0) {
       throw new Error('One of your seats was just taken by someone else. Please go back and pick again.');
     }
