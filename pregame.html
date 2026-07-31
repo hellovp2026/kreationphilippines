@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/png" href="/kph-favicon.png">
+<link rel="apple-touch-icon" href="/kph-favicon.png">
+<title>After-Party Portal · The Pre Game Davao</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #08020F; --surface: rgba(255,255,255,0.03); --surface-2: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #FFFFFF; --text-muted: #B8A8D0; --text-soft: #7A6890;
+    --brand: #FF1B6B; --brand-2: #C724FF; --accent: #00E5FF;
+    --success: #00E676; --warn: #FFB300;
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .font-display { font-family: 'Sora', ui-sans-serif; letter-spacing: -0.3px; }
+  .font-headline { font-family: 'Unbounded', 'Sora', ui-sans-serif; letter-spacing: -0.5px; }
+  .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  input {
+    font-family: inherit; background: rgba(255,255,255,0.03); color: var(--text);
+    border: 1px solid var(--border-strong); outline: none;
+  }
+  input:focus { border-color: var(--brand); }
+  ::placeholder { color: var(--text-soft); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .spin { animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 9px 12px; font-size: 13px; }
+  th { font-size: 10px; letter-spacing: 1.2px; color: var(--text-soft); font-weight: 700; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useCallback } = React;
+
+const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const peso = (n) => '\u20b1' + Number(n || 0).toLocaleString('en-PH');
+
+function Spinner({ size = 16, color = '#fff' }) {
+  return <span className="spin" style={{
+    display: 'inline-block', width: size, height: size,
+    border: '2px solid rgba(255,255,255,0.25)', borderTopColor: color, borderRadius: '50%',
+  }} />;
+}
+
+function App() {
+  const [user, setUser] = useState('');
+  const [pass, setPass] = useState('');
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  // Credentials are held in memory only so Refresh can re-query. They are
+  // never written to storage.
+  const [creds, setCreds] = useState(null);
+
+  const load = useCallback(async (u, p) => {
+    setBusy(true); setErr('');
+    try {
+      const res = await supabase.rpc('pregame_portal_data', { p_user: u, p_pass: p });
+      if (res.error) throw new Error(res.error.message || 'Could not sign in');
+      setData(res.data);
+      setCreds({ u: u, p: p });
+    } catch (e) {
+      setErr((e.message || '').indexOf('Invalid') >= 0
+        ? 'Invalid username or password.'
+        : 'Could not load the portal. Please try again.');
+      setData(null);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  if (!data) {
+    return (
+      <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div className="blob" style={{ width: 460, height: 460, background: 'radial-gradient(circle, rgba(255,27,107,0.26), transparent 70%)', top: -200, left: -120 }} />
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 380 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 2.4, color: 'var(--accent)', fontWeight: 700, marginBottom: 10 }}>
+            DAVAO K-POP CONVENTION 2026
+          </div>
+          <h1 className="font-headline" style={{ fontSize: 27, margin: '0 0 8px', fontWeight: 800 }}>
+            After-Party <span style={{ color: 'var(--brand)' }}>Portal</span>
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 24px' }}>
+            For The Pre Game Davao. Sign in to see reservations and the door list.
+          </p>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+            <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>USERNAME</div>
+            <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="username"
+              onKeyDown={(e) => { if (e.key === 'Enter') load(user, pass); }}
+              style={{ width: '100%', padding: '11px 13px', borderRadius: 9, fontSize: 14, boxSizing: 'border-box', marginBottom: 14 }} />
+            <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>PASSWORD</div>
+            <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="password"
+              onKeyDown={(e) => { if (e.key === 'Enter') load(user, pass); }}
+              style={{ width: '100%', padding: '11px 13px', borderRadius: 9, fontSize: 14, boxSizing: 'border-box', marginBottom: 16 }} />
+            {err && <div style={{ fontSize: 12.5, color: '#FF6B85', marginBottom: 12, lineHeight: 1.5 }}>{err}</div>}
+            <button onClick={() => load(user, pass)} disabled={busy || !user.trim() || !pass}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                background: (busy || !user.trim() || !pass) ? 'rgba(255,255,255,0.06)' : 'linear-gradient(90deg, #FF1B6B, #C724FF)',
+                color: '#fff', fontWeight: 700, fontSize: 14.5, fontFamily: 'inherit',
+                cursor: (busy || !user.trim() || !pass) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+              {busy ? <><Spinner size={14} /> Signing in...</> : 'Sign in'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 14, lineHeight: 1.6 }}>
+            Managed by Kreation Philippines. Contact kreationph@gmail.com for access.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <Portal data={data} busy={busy} onRefresh={() => creds && load(creds.u, creds.p)} onSignOut={() => { setData(null); setCreds(null); setPass(''); }} />;
+}
+
+function Portal({ data, busy, onRefresh, onSignOut }) {
+  const [q, setQ] = useState('');
+  const s = data.stats || {};
+  const guests = data.guests || [];
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return guests;
+    return guests.filter((g) =>
+      (g.guest_name || '').toLowerCase().includes(t) ||
+      (g.reservation_code || '').toLowerCase().includes(t) ||
+      (g.table_code || '').toLowerCase().includes(t));
+  }, [guests, q]);
+
+  const exportCsv = () => {
+    const esc = (v) => {
+      const str = String(v == null ? '' : v);
+      return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+    };
+    const rows = [['Guest name', 'Reservation code', 'Table', 'Floor']];
+    filtered.forEach((g) => rows.push([
+      g.guest_name, g.reservation_code, g.table_code,
+      g.floor === 'ground' ? 'Ground' : g.floor === 'second' ? 'Second' : '',
+    ]));
+    const csv = rows.map((r) => r.map(esc).join(',')).join('\r\n');
+    // BOM so Excel opens UTF-8 names correctly.
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = 'dkc-afterparty-door-list-' + stamp + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const Stat = ({ label, value, color }) => (
+    <div style={{ padding: '12px 15px', borderRadius: 11, background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 130 }}>
+      <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: color || 'var(--text)' }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
+      <div className="blob" style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(255,27,107,0.2), transparent 70%)', top: -250, left: -150 }} />
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1080, margin: '0 auto', padding: '26px 20px 70px' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: 'var(--accent)', fontWeight: 700 }}>DKC 2026 AFTER-PARTY</div>
+            <div className="font-headline" style={{ fontSize: 21, fontWeight: 800 }}>The Pre Game Davao</div>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={onRefresh} disabled={busy} style={btnStyle}>{busy ? 'Refreshing...' : 'Refresh'}</button>
+            <button onClick={onSignOut} style={btnStyle}>Sign out</button>
+          </div>
+        </div>
+
+        {/* Counts */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <Stat label="CONFIRMED GUESTS" value={s.confirmed_heads || 0} color="var(--success)" />
+          <Stat label="RESERVATIONS" value={s.confirmed_reservations || 0} />
+          <Stat label="TABLES BOOKED" value={s.tables_booked || 0} color="var(--brand-2)" />
+          <Stat label="AWAITING PAYMENT CHECK" value={(s.pending_heads || 0) + ' guests'} color="var(--warn)" />
+        </div>
+
+        {/* Money */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', marginBottom: 20 }}>
+          <div className="font-display" style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Figures for settlement</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            <MoneyLine label="Your per-head cut (confirmed)" value={peso(s.pregame_cut_total)} color="var(--success)" />
+            <MoneyLine label="Table minimum spends collected" value={peso(s.table_minspend_total)} color="var(--brand-2)" />
+            <MoneyLine label="Entry collected by Pre Game" value={peso(s.entry_collected_by_pregame)} />
+            <MoneyLine label="Entry collected by Kreation" value={peso(s.entry_collected_by_kreation)} />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 12, lineHeight: 1.6 }}>
+            Confirmed reservations only. Final settlement is reconciled with Kreation Philippines and may include items not recorded here, such as door walk-ins and passes sold before the after-party moved to its own booking page.
+          </div>
+        </div>
+
+        {/* Door list */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="font-display" style={{ fontSize: 13, fontWeight: 800 }}>
+              Door list <span style={{ color: 'var(--text-soft)', fontWeight: 600 }}>· {filtered.length} of {guests.length}</span>
+            </div>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code or table"
+              style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 9, fontSize: 12.5, minWidth: 220 }} />
+            <button onClick={exportCsv} disabled={filtered.length === 0} style={{
+              padding: '8px 14px', borderRadius: 9, fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+              cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
+              background: filtered.length === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,27,107,0.16)',
+              border: '1px solid ' + (filtered.length === 0 ? 'var(--border-strong)' : 'var(--brand)'),
+              color: filtered.length === 0 ? 'var(--text-soft)' : 'var(--brand)',
+            }}>Export CSV</button>
+          </div>
+
+          {guests.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-soft)', fontSize: 13 }}>
+              No confirmed guests yet. Names appear here once Kreation verifies each payment.
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-soft)', fontSize: 13 }}>No match for that search.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr><th>GUEST NAME</th><th>RESERVATION</th><th>TABLE</th></tr>
+                </thead>
+                <tbody>
+                  {filtered.map((g, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>{g.guest_name}</td>
+                      <td className="font-mono" style={{ color: 'var(--brand)' }}>{g.reservation_code}</td>
+                      <td style={{ color: g.table_code === 'No table' ? 'var(--text-soft)' : 'var(--brand-2)' }}>
+                        {g.table_code}{g.floor ? ' \u00b7 ' + (g.floor === 'ground' ? 'Ground' : 'Second') : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 16, lineHeight: 1.6 }}>
+          Everyone on this list is 18+ and has been verified by Kreation Philippines. Guests must present a physical ID at the door. Questions: kreationph@gmail.com
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoneyLine({ label, value, color }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'var(--text-soft)', marginBottom: 3 }}>{label}</div>
+      <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: color || 'var(--text)' }}>{value}</div>
+    </div>
+  );
+}
+
+const btnStyle = {
+  padding: '8px 14px', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+  background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)',
+  color: 'var(--text-muted)', fontFamily: 'inherit',
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
