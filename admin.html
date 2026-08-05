@@ -1980,6 +1980,88 @@ function Dashboard({ session, adminRecord }) {
     setSelectedId(null);
   }, [orders, session, showToast, fetchOrders, fetchTickets]);
 
+  // ===== ONGOING ISSUES =====
+  const [issues, setIssues] = useState([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
+
+  const fetchIssues = useCallback(async () => {
+    setIssuesLoading(true);
+    const res = await supabase.from('order_issues')
+      .select('*')
+      .order('status', { ascending: true })
+      .order('created_at', { ascending: false });
+    if (res.error) {
+      console.error(res.error);
+      showToast('Could not load issues: ' + res.error.message, 'warning');
+    } else {
+      setIssues(res.data || []);
+    }
+    setIssuesLoading(false);
+  }, [showToast]);
+
+  const resolveIssue = async (issue, note) => {
+    const res = await supabase.from('order_issues').update({
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      resolved_by: session.user.email,
+      resolution_note: (note || '').trim() || null,
+    }).eq('id', issue.id);
+    if (res.error) { showToast('Could not resolve: ' + res.error.message, 'warning'); return; }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'issue_resolved', resource_type: 'order_issue', resource_id: issue.id,
+    });
+    showToast('Resolved ' + issue.order_number, 'success');
+    fetchIssues();
+  };
+
+  const reopenIssue = async (issue) => {
+    const res = await supabase.from('order_issues').update({
+      status: 'open', resolved_at: null, resolved_by: null, resolution_note: null,
+    }).eq('id', issue.id);
+    if (res.error) { showToast('Could not reopen: ' + res.error.message, 'warning'); return; }
+    showToast('Reopened ' + issue.order_number, 'success');
+    fetchIssues();
+  };
+
+  const deleteIssue = async (issue) => {
+    const res = await supabase.from('order_issues').delete().eq('id', issue.id);
+    if (res.error) { showToast('Could not delete: ' + res.error.message, 'warning'); return; }
+    await supabase.from('audit_log').insert({
+      actor_email: session.user.email,
+      action: 'issue_deleted', resource_type: 'order_issue', resource_id: issue.id,
+      details: { order_number: issue.order_number },
+    });
+    showToast('Deleted issue for ' + issue.order_number, 'success');
+    fetchIssues();
+  };
+
+  const addIssue = async (draft) => {
+    const res = await supabase.from('order_issues').insert({
+      order_number: draft.order_number.trim(),
+      buyer_name: draft.buyer_name.trim() || null,
+      buyer_email: draft.buyer_email.trim() || null,
+      buyer_phone: draft.buyer_phone.trim() || null,
+      reference_number: draft.reference_number.trim() || null,
+      amount: draft.amount ? Number(draft.amount) : null,
+      seat_label: draft.seat_label.trim() || null,
+      issue: draft.issue.trim(),
+      status: 'open',
+      created_by: session.user.email,
+    });
+    if (res.error) {
+      const dupe = (res.error.message || '').toLowerCase().includes('duplicate');
+      showToast(dupe
+        ? 'An issue is already logged for that order number.'
+        : 'Could not save: ' + res.error.message, 'warning');
+      return;
+    }
+    showToast('Issue logged for ' + draft.order_number, 'success');
+    fetchIssues();
+  };
+
+  useEffect(() => { fetchIssues(); }, [fetchIssues]);
+
   // ===== AFTER-PARTY =====
   // Reads reservations with their table and guest rows embedded. Each table
   // carries its own admin-only RLS policy, so this returns nothing unless the
@@ -3656,6 +3738,7 @@ function Dashboard({ session, adminRecord }) {
                   : section === 'settings' ? fetchTemplatesAndSettings
                   : section === 'seatmap' ? (() => { fetchSeats(); fetchOrderSeats(); })
                   : section === 'afterparty' ? fetchAfterParty
+                  : section === 'issues' ? fetchIssues
                   : section === 'settlement' ? fetchAfterParty
                   : fetchOrders
               } />
@@ -3760,6 +3843,18 @@ function Dashboard({ session, adminRecord }) {
           }}>
             {apReservations.filter((r) => r.status === 'awaiting_verification').length}
           </span>
+        </button>
+        <button onClick={() => setSection('issues')} style={sectionBtnStyle(section === 'issues')}>
+          <Icon name="alert" size={14} />
+          <span>Ongoing Issues</span>
+          {issues.filter((i) => i.status === 'open').length > 0 && (
+            <span className="font-mono" style={{
+              background: 'rgba(255, 179, 0, 0.9)', color: '#08020F',
+              padding: '1px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+            }}>
+              {issues.filter((i) => i.status === 'open').length}
+            </span>
+          )}
         </button>
         <button onClick={() => setSection('ticketmail')} style={sectionBtnStyle(section === 'ticketmail')}>
           <Icon name="mail" size={14} />
@@ -4009,6 +4104,16 @@ function Dashboard({ session, adminRecord }) {
         adminEmail={session && session.user ? session.user.email : null}
         onConfirm={confirmAfterParty}
         onReject={rejectAfterParty}
+      />
+      ) : section === 'issues' ? (
+      <OngoingIssuesView
+        issues={issues}
+        loading={issuesLoading}
+        onRefresh={fetchIssues}
+        onResolve={resolveIssue}
+        onReopen={reopenIssue}
+        onDelete={deleteIssue}
+        onAdd={addIssue}
       />
       ) : section === 'ticketmail' ? (
       <TicketEmailPanel
@@ -11196,6 +11301,203 @@ const DISPUTE_TYPE_META = {
     icon: 'alert',
   },
 };
+
+function OngoingIssuesView({ issues, loading, onRefresh, onResolve, onReopen, onDelete, onAdd }) {
+  const [filter, setFilter] = useState('open');
+  const [search, setSearch] = useState('');
+  const [resolvingId, setResolvingId] = useState(null);
+  const [resolveNote, setResolveNote] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newIssue, setNewIssue] = useState({ order_number: '', buyer_name: '', buyer_email: '', buyer_phone: '', reference_number: '', amount: '', seat_label: '', issue: '' });
+
+  const counts = useMemo(() => ({
+    open: (issues || []).filter((i) => i.status === 'open').length,
+    resolved: (issues || []).filter((i) => i.status === 'resolved').length,
+    all: (issues || []).length,
+  }), [issues]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (issues || []).filter((i) => {
+      if (filter !== 'all' && i.status !== filter) return false;
+      if (!q) return true;
+      const hay = [i.order_number, i.buyer_name, i.buyer_email, i.buyer_phone,
+                   i.reference_number, i.seat_label, i.issue].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [issues, filter, search]);
+
+  const btn = (extra) => Object.assign({
+    padding: '7px 13px', borderRadius: 9, fontSize: 12.5, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)',
+    color: 'var(--text-muted)',
+  }, extra || {});
+
+  const Field = ({ label, value, onChange, ph, wide }) => (
+    <div style={{ flex: wide ? '1 1 100%' : '1 1 180px' }}>
+      <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={ph}
+        style={{ width: '100%', padding: '8px 11px', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '20px 32px 40px' }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[['open', 'Open', '#FFB300'], ['resolved', 'Resolved', '#00E676'], ['all', 'All', null]].map(([k, label, color]) => {
+          const on = filter === k;
+          return (
+            <button key={k} onClick={() => setFilter(k)} style={{
+              padding: '7px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+              background: on ? (color ? color + '22' : 'rgba(255,255,255,0.09)') : 'rgba(255,255,255,0.03)',
+              border: '1px solid ' + (on ? (color || 'var(--border-strong)') : 'var(--border)'),
+              color: on ? (color || 'var(--text)') : 'var(--text-muted)',
+            }}>
+              {label} <span className="font-mono" style={{ opacity: 0.75 }}>{counts[k]}</span>
+            </button>
+          );
+        })}
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, order, reference..."
+          style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 9, fontSize: 12.5, minWidth: 230 }} />
+        <button onClick={onRefresh} style={btn()}>{loading ? 'Loading...' : 'Refresh'}</button>
+        <button onClick={() => setAdding(!adding)} style={btn({
+          background: 'rgba(255,27,107,0.14)', border: '1px solid var(--brand)', color: 'var(--brand)', fontWeight: 700,
+        })}>{adding ? 'Cancel' : '+ Log an issue'}</button>
+      </div>
+
+      {adding && (
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', marginBottom: 16 }}>
+          <div className="font-display" style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 12 }}>Log a new issue</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+            <Field label="ORDER NUMBER" value={newIssue.order_number} onChange={(v) => setNewIssue({ ...newIssue, order_number: v })} ph="KP-0000" />
+            <Field label="BUYER NAME" value={newIssue.buyer_name} onChange={(v) => setNewIssue({ ...newIssue, buyer_name: v })} ph="Full name" />
+            <Field label="EMAIL" value={newIssue.buyer_email} onChange={(v) => setNewIssue({ ...newIssue, buyer_email: v })} ph="name@email.com" />
+            <Field label="PHONE" value={newIssue.buyer_phone} onChange={(v) => setNewIssue({ ...newIssue, buyer_phone: v })} ph="09XX XXX XXXX" />
+            <Field label="PAYMENT REFERENCE" value={newIssue.reference_number} onChange={(v) => setNewIssue({ ...newIssue, reference_number: v })} ph="GCash ref" />
+            <Field label="AMOUNT" value={newIssue.amount} onChange={(v) => setNewIssue({ ...newIssue, amount: v.replace(/[^0-9.]/g, '') })} ph="280" />
+            <Field label="SEAT" value={newIssue.seat_label} onChange={(v) => setNewIssue({ ...newIssue, seat_label: v })} ph="A12" />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 4 }}>WHAT IS THE ISSUE</div>
+            <textarea value={newIssue.issue} onChange={(e) => setNewIssue({ ...newIssue, issue: e.target.value })}
+              placeholder="What went wrong, what needs to happen, and what the customer has been told."
+              style={{ width: '100%', minHeight: 70, padding: '10px 12px', borderRadius: 9, fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', background: 'rgba(255,255,255,0.03)', color: 'var(--text)', border: '1px solid var(--border-strong)', resize: 'vertical' }} />
+          </div>
+          <button
+            disabled={!newIssue.order_number.trim() || !newIssue.issue.trim()}
+            onClick={() => {
+              onAdd(newIssue);
+              setNewIssue({ order_number: '', buyer_name: '', buyer_email: '', buyer_phone: '', reference_number: '', amount: '', seat_label: '', issue: '' });
+              setAdding(false);
+            }}
+            style={btn({
+              background: (newIssue.order_number.trim() && newIssue.issue.trim())
+                ? 'linear-gradient(90deg, #FF1B6B, #C724FF)' : 'rgba(255,255,255,0.05)',
+              border: 'none', color: '#fff', fontWeight: 700, padding: '10px 18px',
+              cursor: (newIssue.order_number.trim() && newIssue.issue.trim()) ? 'pointer' : 'not-allowed',
+            })}>
+            Save issue
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: 50, textAlign: 'center', color: 'var(--text-soft)', fontSize: 13 }}>Loading issues...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: 50, textAlign: 'center', color: 'var(--text-soft)', fontSize: 13.5, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 14 }}>
+          {filter === 'open' ? 'Nothing outstanding. Every issue is resolved.' : 'No issues match.'}
+        </div>
+      ) : filtered.map((i) => {
+        const isOpen = i.status === 'open';
+        return (
+          <div key={i.id} style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid ' + (isOpen ? 'rgba(255,179,0,0.35)' : 'var(--border)'),
+            borderLeft: '3px solid ' + (isOpen ? '#FFB300' : '#00E676'),
+            borderRadius: 12, padding: '15px 18px', marginBottom: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+              <span className="font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--brand)' }}>{i.order_number}</span>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{i.buyer_name || 'Unknown buyer'}</span>
+              {i.seat_label && (
+                <span style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 999, background: 'rgba(199,36,255,0.16)', color: '#D98BFF', fontWeight: 700 }}>
+                  Seat {i.seat_label}
+                </span>
+              )}
+              <span style={{
+                fontSize: 11, padding: '2px 9px', borderRadius: 999, fontWeight: 700,
+                background: isOpen ? 'rgba(255,179,0,0.16)' : 'rgba(0,230,118,0.16)',
+                color: isOpen ? '#FFD37A' : '#00E676',
+              }}>{isOpen ? 'OPEN' : 'RESOLVED'}</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-soft)' }}>
+                logged {new Date(i.created_at).toLocaleDateString()}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 10, fontSize: 12.5 }}>
+              {i.buyer_email && <span style={{ color: 'var(--text-muted)' }}>{i.buyer_email}</span>}
+              {i.buyer_phone && <span style={{ color: 'var(--text-muted)' }}>{i.buyer_phone}</span>}
+              {i.reference_number && (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  ref <span className="font-mono" style={{ color: 'var(--accent)' }}>{i.reference_number}</span>
+                </span>
+              )}
+              {i.amount != null && <span className="font-mono" style={{ color: 'var(--text)' }}>{peso(i.amount)}</span>}
+            </div>
+
+            <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>{i.issue}</div>
+
+            {!isOpen && (i.resolution_note || i.resolved_by) && (
+              <div style={{ fontSize: 12.5, color: '#00E676', lineHeight: 1.55, marginBottom: 12, paddingLeft: 10, borderLeft: '2px solid rgba(0,230,118,0.4)' }}>
+                {i.resolution_note || 'Marked resolved.'}
+                <span style={{ color: 'var(--text-soft)' }}>
+                  {i.resolved_by ? '  ' + i.resolved_by : ''}
+                  {i.resolved_at ? ' on ' + new Date(i.resolved_at).toLocaleDateString() : ''}
+                </span>
+              </div>
+            )}
+
+            {confirmDeleteId === i.id ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: '#FF6B85' }}>Delete this record permanently?</span>
+                <button onClick={() => { onDelete(i); setConfirmDeleteId(null); }}
+                  style={btn({ border: '1px solid #FF6B85', background: 'rgba(255,107,127,0.14)', color: '#FF6B85', fontWeight: 700 })}>Yes, delete</button>
+                <button onClick={() => setConfirmDeleteId(null)} style={btn()}>Keep it</button>
+              </div>
+            ) : resolvingId === i.id ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input value={resolveNote} onChange={(e) => setResolveNote(e.target.value)}
+                  placeholder="How was it settled? e.g. rebooked C10 on the same reference"
+                  style={{ flex: '1 1 300px', padding: '9px 12px', borderRadius: 9, fontSize: 12.5 }} />
+                <button onClick={() => { onResolve(i, resolveNote); setResolvingId(null); setResolveNote(''); }}
+                  style={btn({ border: '1px solid #00E676', background: 'rgba(0,230,118,0.14)', color: '#00E676', fontWeight: 700 })}>Mark resolved</button>
+                <button onClick={() => { setResolvingId(null); setResolveNote(''); }} style={btn()}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {isOpen ? (
+                  <button onClick={() => setResolvingId(i.id)}
+                    style={btn({ border: '1px solid #00E676', background: 'rgba(0,230,118,0.12)', color: '#00E676', fontWeight: 700 })}>Mark resolved</button>
+                ) : (
+                  <button onClick={() => onReopen(i)} style={btn()}>Reopen</button>
+                )}
+                <button onClick={() => setConfirmDeleteId(i.id)} style={btn({ color: 'var(--text-soft)' })}>Delete</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 14, lineHeight: 1.6 }}>
+        Buyer details are stored on the issue itself, not looked up from the order, so a record stays complete even after the order is voided. Resolve keeps the history; delete removes it for good.
+      </div>
+    </div>
+  );
+}
 
 function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
   const [busy, setBusy] = useState(false);
