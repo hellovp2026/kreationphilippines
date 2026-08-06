@@ -332,7 +332,7 @@ function GuestsStep({ choice, guests, setGuests, onBack, onNext, err }) {
         </div>
         {extras > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{extras} extra {extras === 1 ? 'pass' : 'passes'} \u00d7 {peso(PASS_PRICE)}</span>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{extras} extra {extras === 1 ? 'pass' : 'passes'} {'\u00d7'} {peso(PASS_PRICE)}</span>
             <span className="font-mono" style={{ fontSize: 14 }}>{peso(extras * PASS_PRICE)}</span>
           </div>
         )}
