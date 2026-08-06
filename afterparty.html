@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="icon" type="image/png" href="/kph-favicon.png">
 <link rel="apple-touch-icon" href="/kph-favicon.png">
-<title>DKC 2026 After-Party · The Pre Game Davao</title>
-<meta name="description" content="Reserve your entry and tables for the official Davao K-Pop Convention 2026 after-party at The Pre Game Davao." />
+<title>Grand Encore After Party · The Pre Game Davao</title>
+<meta name="description" content="Reserve your pass or table for Grand Encore, the official K-Pop after party at The Pre Game Davao, 22 August 2026." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Unbounded:wght@700;800&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -62,684 +62,572 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useMemo, useCallback, useRef } = React;
+const { useState, useEffect, useMemo, useCallback } = React;
 
 const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const ENTRY_REGULAR = 450;    // includes a drink
-const ENTRY_DISCOUNTED = 300; // table min-pax rate, no drink
-const ENTRY_WALKIN = 500;     // night-only, informational here
-const PREGAME_CUT = 150;
+// Mirrors create_grand_encore_reservation. The server is authoritative;
+// these exist so the buyer sees a live total before submitting.
+const PASS_PRICE  = 450;   // pre-reg pass, and each extra pass on a table
+const WALKIN_PRICE = 600;  // door only, never sold here
+const CUTOFF = new Date('2026-08-20T23:59:59+08:00');
+
+const GCASH_NAME = 'Kyla Don';
+const GCASH_NUM  = '09534900227';
 
 const peso = (n) => '\u20b1' + Number(n || 0).toLocaleString('en-PH');
 
-const TYPE_LABEL = {
-  standing: 'Standing Table',
-  chairs: 'Table with Chairs',
-  vip_couch: 'VIP Couch',
-  vip_table: 'VIP Table',
-  vip_high: 'VIP High Table',
-  vip_mega: 'VIP Mega Couch',
-};
+function Blob({ c, s, t, l, r, b, o }) {
+  return <div className="blob" style={{ background: c, width: s, height: s, top: t, left: l, right: r, bottom: b, opacity: o || 0.5 }} />;
+}
 
-function Spinner({ size = 16, color = 'var(--brand)' }) {
+function Shell({ children }) {
   return (
-    <span className="spin" style={{
-      display: 'inline-block', width: size, height: size,
-      border: '2px solid rgba(255,255,255,0.25)', borderTopColor: color,
-      borderRadius: '50%',
-    }} />
+    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
+      <Blob c="#FF1B6B" s="480px" t="-160px" l="-140px" o={0.28} />
+      <Blob c="#C724FF" s="420px" t="240px" r="-120px" o={0.22} />
+      <Blob c="#00E5FF" s="360px" b="-140px" l="18%" o={0.14} />
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 860, margin: '0 auto', padding: '28px 18px 70px' }}>
+        {children}
+      </div>
+    </div>
   );
 }
 
-// ============================================================
-// APP
-// ============================================================
+function Header() {
+  return (
+    <div style={{ textAlign: 'center', marginBottom: 30 }}>
+      <div className="font-mono" style={{ fontSize: 11, letterSpacing: 3.5, color: 'var(--accent)', fontWeight: 700, marginBottom: 10 }}>
+        THE OFFICIAL K-POP AFTER PARTY
+      </div>
+      <div className="font-headline" style={{ fontSize: 'clamp(34px, 8vw, 58px)', fontWeight: 800, lineHeight: 1.02, marginBottom: 12 }}>
+        Grand<br />Encore
+      </div>
+      <div style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        Saturday 22 August 2026 &nbsp;·&nbsp; from 9:00 PM<br />
+        The Pre Game Davao
+      </div>
+      <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 16 }}>
+        {['Strictly 18+', 'Physical ID required', 'Complimentary drinks'].map((t) => (
+          <span key={t} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)', color: 'var(--text-muted)' }}>{t}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Card({ children, style }) {
+  return (
+    <div style={Object.assign({
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 18, padding: '22px 20px', marginBottom: 16,
+    }, style || {})}>{children}</div>
+  );
+}
+
+function Field({ label, value, onChange, ph, type, w }) {
+  return (
+    <div style={{ flex: w || '1 1 180px', minWidth: 0 }}>
+      <div className="font-mono" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 5 }}>{label}</div>
+      <input type={type || 'text'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={ph}
+        style={{ width: '100%', padding: '11px 13px', borderRadius: 10, fontSize: 14.5, boxSizing: 'border-box' }} />
+    </div>
+  );
+}
+
+// ---------- step 1: what are you booking ----------
+
+function ChooseStep({ avail, choice, setChoice, onNext }) {
+  const stateLabel = { available: null, low: 'ONLY A FEW LEFT', full: 'FULLY BOOKED' };
+
+  return (
+    <>
+      <Card>
+        <div className="font-display" style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Come on your own</div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+          One entry pass per person. Complimentary drinks included. No table.
+        </div>
+        <button onClick={() => setChoice({ kind: 'pass' })}
+          style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+            padding: '16px 18px', borderRadius: 14,
+            background: choice.kind === 'pass' ? 'rgba(255,27,107,0.14)' : 'rgba(255,255,255,0.03)',
+            border: '1px solid ' + (choice.kind === 'pass' ? 'var(--brand)' : 'var(--border-strong)'),
+          }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span className="font-headline" style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{peso(PASS_PRICE)}</span>
+            <span style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>per person</span>
+          </div>
+        </button>
+      </Card>
+
+      <Card>
+        <div className="font-display" style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Book a table</div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 4 }}>
+          One all-in price. Every table bundles entry passes for your group <strong style={{ color: '#fff' }}>and</strong> a consumable you spend on food and drinks at the bar.
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--accent)', lineHeight: 1.6, marginBottom: 18 }}>
+          Nothing more to pay at the door. Passes work out at {peso(300)} a head, against {peso(PASS_PRICE)} booking individually.
+        </div>
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          {avail.map((t) => {
+            const key = t.table_type + '|' + t.floor;
+            const on = choice.kind === 'table' && choice.key === key;
+            const full = t.state === 'full';
+            const badge = stateLabel[t.state];
+            return (
+              <button key={key} disabled={full}
+                onClick={() => setChoice({ kind: 'table', key, table: t })}
+                style={{
+                  textAlign: 'left', cursor: full ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  padding: '16px 18px', borderRadius: 14, opacity: full ? 0.45 : 1,
+                  background: on ? 'rgba(199,36,255,0.14)' : 'rgba(255,255,255,0.03)',
+                  border: '1px solid ' + (on ? 'var(--brand-2)' : 'var(--border-strong)'),
+                }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span className="font-display" style={{ fontSize: 16.5, fontWeight: 800, color: '#fff' }}>{t.label}</span>
+                  <span className="font-mono" style={{ fontSize: 10.5, letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 700 }}>
+                    {t.floor === 'ground' ? 'GROUND FLOOR' : 'SECOND FLOOR'}
+                  </span>
+                  {badge && (
+                    <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 999,
+                      background: full ? 'var(--danger-bg)' : 'var(--warn-bg)',
+                      color: full ? '#FF6B85' : '#FFD37A' }}>{badge}</span>
+                  )}
+                  <span className="font-headline" style={{ marginLeft: 'auto', fontSize: 23, fontWeight: 800, color: '#fff' }}>
+                    {peso(t.package_price)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: 'var(--text-muted)' }}>
+                  <span>Seats {t.min_pax} to {t.max_pax}</span>
+                  <span><strong style={{ color: '#fff' }}>{t.included_passes}</strong> entry passes</span>
+                  <span><strong style={{ color: 'var(--accent)' }}>{peso(t.consumable)}</strong> consumable</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card style={{ background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)' }}>
+        <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: '#FFD37A', marginBottom: 6 }}>
+          Turning up on the night
+        </div>
+        <div style={{ fontSize: 13.5, color: '#FFD37A', lineHeight: 1.6 }}>
+          Walk-in entry is {peso(WALKIN_PRICE)} at the door, complimentary drinks included. Door slots are limited and cannot be reserved here. Booking ahead saves you {peso(WALKIN_PRICE - PASS_PRICE)}.
+        </div>
+      </Card>
+
+      <button disabled={!choice.kind} onClick={onNext}
+        style={{
+          width: '100%', padding: '16px', borderRadius: 14, border: 'none',
+          fontFamily: 'inherit', fontSize: 15.5, fontWeight: 800, color: '#fff',
+          cursor: choice.kind ? 'pointer' : 'not-allowed',
+          background: choice.kind ? 'linear-gradient(90deg,#FF1B6B,#C724FF)' : 'rgba(255,255,255,0.06)',
+        }}>
+        Continue
+      </button>
+    </>
+  );
+}
+
+// ---------- step 2: who is coming ----------
+
+function GuestsStep({ choice, guests, setGuests, onBack, onNext, err }) {
+  const table = choice.kind === 'table' ? choice.table : null;
+  const maxGuests = table ? table.max_pax : 12;
+  const included = table ? table.included_passes : 0;
+  const extras = table ? Math.max(0, guests.length - included) : 0;
+
+  const total = table
+    ? Number(table.package_price) + extras * PASS_PRICE
+    : guests.length * PASS_PRICE;
+
+  const set = (i, k, v) => setGuests(guests.map((g, j) => (j === i ? Object.assign({}, g, { [k]: v }) : g)));
+
+  return (
+    <>
+      <Card>
+        <div className="font-display" style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>
+          {table ? table.label : 'Entry passes'}
+        </div>
+        {table ? (
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+            Your {peso(table.package_price)} covers <strong style={{ color: '#fff' }}>{included} entry passes</strong> and a <strong style={{ color: 'var(--accent)' }}>{peso(table.consumable)} consumable</strong> at the bar.
+            {' '}The table seats up to {table.max_pax}. Bringing more than {included}? Each extra person is {peso(PASS_PRICE)}.
+          </div>
+        ) : (
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+            {peso(PASS_PRICE)} per person, complimentary drinks included.
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="font-display" style={{ fontSize: 15.5, fontWeight: 800, marginBottom: 5 }}>Everyone in your party</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 18 }}>
+          We need a name, age and email for every guest. Each person receives their own entry QR by email, so the addresses must be different and correct. Everyone must be 18 or over and bring a physical ID.
+        </div>
+
+        {guests.map((g, i) => {
+          const isExtra = table && i >= included;
+          return (
+            <div key={i} style={{
+              padding: '14px 15px', borderRadius: 12, marginBottom: 10,
+              background: isExtra ? 'rgba(255,179,0,0.07)' : 'rgba(255,255,255,0.02)',
+              border: '1px solid ' + (isExtra ? 'rgba(255,179,0,0.3)' : 'var(--border)'),
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 11, flexWrap: 'wrap' }}>
+                <span className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-soft)', letterSpacing: 1 }}>
+                  GUEST {i + 1}
+                </span>
+                {isExtra && (
+                  <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: 'var(--warn-bg)', color: '#FFD37A' }}>
+                    EXTRA PASS +{peso(PASS_PRICE)}
+                  </span>
+                )}
+                {guests.length > 1 && (
+                  <button onClick={() => setGuests(guests.filter((_, j) => j !== i))}
+                    style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-soft)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit' }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Field label="FULL NAME" value={g.name} onChange={(v) => set(i, 'name', v)} ph="As on their ID" w="1 1 200px" />
+                <Field label="AGE" value={g.age} onChange={(v) => set(i, 'age', v.replace(/[^0-9]/g, '').slice(0, 2))} ph="18" w="0 0 90px" />
+                <Field label="EMAIL" value={g.email} onChange={(v) => set(i, 'email', v)} ph="name@email.com" type="email" w="1 1 220px" />
+              </div>
+            </div>
+          );
+        })}
+
+        {guests.length < maxGuests && (
+          <button onClick={() => setGuests(guests.concat([{ name: '', age: '', email: '' }]))}
+            style={{
+              width: '100%', padding: '13px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+              background: 'rgba(255,255,255,0.04)', border: '1px dashed var(--border-strong)',
+              color: 'var(--text-muted)', fontSize: 14, fontWeight: 700,
+            }}>
+            + Add guest
+            {table && guests.length >= included ? '  (extra pass, ' + peso(PASS_PRICE) + ')' : ''}
+          </button>
+        )}
+        {guests.length >= maxGuests && (
+          <div style={{ fontSize: 12.5, color: 'var(--text-soft)', textAlign: 'center', paddingTop: 6 }}>
+            That is the maximum for this {table ? 'table' : 'booking'}.
+          </div>
+        )}
+      </Card>
+
+      <Card style={{ background: 'rgba(0,229,255,0.06)', border: '1px solid rgba(0,229,255,0.28)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            {table ? table.label + ' package' : peso(PASS_PRICE) + ' \u00d7 ' + guests.length + ' passes'}
+          </span>
+          <span className="font-mono" style={{ fontSize: 14 }}>{peso(table ? table.package_price : guests.length * PASS_PRICE)}</span>
+        </div>
+        {extras > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{extras} extra {extras === 1 ? 'pass' : 'passes'} \u00d7 {peso(PASS_PRICE)}</span>
+            <span className="font-mono" style={{ fontSize: 14 }}>{peso(extras * PASS_PRICE)}</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 10, borderTop: '1px solid rgba(0,229,255,0.25)' }}>
+          <span className="font-display" style={{ fontSize: 16, fontWeight: 800 }}>Total to pay now</span>
+          <span className="font-headline" style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>{peso(total)}</span>
+        </div>
+        {table && (
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 9, lineHeight: 1.55 }}>
+            Includes the {peso(table.consumable)} consumable, which is yours to spend at the bar on the night.
+          </div>
+        )}
+      </Card>
+
+      {err && (
+        <Card style={{ background: 'var(--danger-bg)', border: '1px solid rgba(255,23,68,0.4)' }}>
+          <div style={{ fontSize: 13.5, color: '#FF6B85', lineHeight: 1.6 }}>{err}</div>
+        </Card>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onBack} style={{ flex: '0 0 auto', padding: '16px 22px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)', color: 'var(--text-muted)', fontSize: 15, fontWeight: 700 }}>
+          Back
+        </button>
+        <button onClick={onNext} style={{ flex: 1, padding: '16px', borderRadius: 14, border: 'none', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 800, color: '#fff', cursor: 'pointer', background: 'linear-gradient(90deg,#FF1B6B,#C724FF)' }}>
+          Continue to payment
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ---------- step 3: pay ----------
+
+function PayStep({ total, buyer, setBuyer, liability, setLiability, file, setFile, onBack, onSubmit, busy, err }) {
+  const ready = buyer.name.trim() && buyer.email.trim() && buyer.phone.trim() && buyer.reference.trim() && file && liability;
+  return (
+    <>
+      <Card>
+        <div className="font-display" style={{ fontSize: 19, fontWeight: 800, marginBottom: 14 }}>Send {peso(total)} via GCash</div>
+        <div style={{ padding: '18px 20px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-strong)', marginBottom: 16 }}>
+          <div className="font-mono" style={{ fontSize: 10.5, letterSpacing: 1.5, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 6 }}>ACCOUNT NAME</div>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 800, marginBottom: 14 }}>{GCASH_NAME}</div>
+          <div className="font-mono" style={{ fontSize: 10.5, letterSpacing: 1.5, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 6 }}>NUMBER</div>
+          <div className="font-mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>{GCASH_NUM}</div>
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+          Send the exact amount, then enter your reference number and upload the receipt below. We verify every payment by hand, usually within 24 hours.
+        </div>
+      </Card>
+
+      <Card>
+        <div className="font-display" style={{ fontSize: 15.5, fontWeight: 800, marginBottom: 14 }}>Your details</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <Field label="YOUR NAME" value={buyer.name} onChange={(v) => setBuyer({ ...buyer, name: v })} ph="Full name" />
+          <Field label="YOUR EMAIL" value={buyer.email} onChange={(v) => setBuyer({ ...buyer, email: v })} ph="name@email.com" type="email" />
+          <Field label="MOBILE" value={buyer.phone} onChange={(v) => setBuyer({ ...buyer, phone: v })} ph="09XX XXX XXXX" />
+          <Field label="GCASH REFERENCE" value={buyer.reference} onChange={(v) => setBuyer({ ...buyer, reference: v })} ph="From your receipt" />
+        </div>
+        <div className="font-mono" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 6 }}>RECEIPT SCREENSHOT</div>
+        <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files && e.target.files[0])}
+          style={{ width: '100%', padding: '11px 13px', borderRadius: 10, fontSize: 13.5, boxSizing: 'border-box' }} />
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <div className="font-mono" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 6 }}>
+            PROMOTER CODE <span style={{ color: 'var(--text-soft)', letterSpacing: 0 }}>(optional)</span>
+          </div>
+          <input value={buyer.promoter} onChange={(e) => setBuyer({ ...buyer, promoter: e.target.value.toUpperCase().slice(0, 24) })}
+            placeholder="If someone referred you, enter their code"
+            style={{ width: '100%', padding: '11px 13px', borderRadius: 10, fontSize: 14.5, boxSizing: 'border-box' }} />
+          <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 6, lineHeight: 1.55 }}>
+            Leave this blank if you do not have one. It does not change what you pay.
+          </div>
+        </div>
+      </Card>
+
+      <Card style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer' }}>
+          <input type="checkbox" checked={liability} onChange={(e) => setLiability(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0, accentColor: '#FF1B6B' }} />
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+            I confirm everyone in my party is 18 or over and will bring a physical ID. I understand entry is refused without one.
+            Grand Encore is produced by UKD and hosted at The Pre Game Davao, and any matter arising at the venue is between those parties and the guest.
+            Kreation Philippines acts solely as the ticketing provider.
+            <strong style={{ color: '#fff' }}> Bookings are non-refundable and cannot be transferred.</strong>
+          </span>
+        </label>
+      </Card>
+
+      {err && (
+        <Card style={{ background: 'var(--danger-bg)', border: '1px solid rgba(255,23,68,0.4)' }}>
+          <div style={{ fontSize: 13.5, color: '#FF6B85', lineHeight: 1.6 }}>{err}</div>
+        </Card>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onBack} disabled={busy} style={{ flex: '0 0 auto', padding: '16px 22px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)', color: 'var(--text-muted)', fontSize: 15, fontWeight: 700 }}>
+          Back
+        </button>
+        <button onClick={onSubmit} disabled={!ready || busy}
+          style={{
+            flex: 1, padding: '16px', borderRadius: 14, border: 'none', fontFamily: 'inherit',
+            fontSize: 15.5, fontWeight: 800, color: '#fff',
+            cursor: (ready && !busy) ? 'pointer' : 'not-allowed',
+            background: (ready && !busy) ? 'linear-gradient(90deg,#FF1B6B,#C724FF)' : 'rgba(255,255,255,0.06)',
+          }}>
+          {busy ? 'Submitting...' : 'Submit booking'}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ---------- step 4: done ----------
+
+function DoneStep({ result }) {
+  return (
+    <Card style={{ textAlign: 'center', padding: '38px 24px' }}>
+      <div className="font-headline" style={{ fontSize: 26, fontWeight: 800, marginBottom: 12 }}>Booking received</div>
+      <div style={{ fontSize: 14.5, color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: 22 }}>
+        We are checking your payment now. Once it clears, every guest receives their own entry QR by email.
+      </div>
+      <div style={{ display: 'inline-block', padding: '14px 26px', borderRadius: 14, background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.35)', marginBottom: 22 }}>
+        <div className="font-mono" style={{ fontSize: 10.5, letterSpacing: 1.5, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 5 }}>REFERENCE</div>
+        <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{result.reservation_code}</div>
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+        Keep this reference. Bring a physical ID on the night, strictly 18 and over.<br />
+        Doors from 9:00 PM at The Pre Game Davao.
+      </div>
+    </Card>
+  );
+}
+
+// ---------- app ----------
+
 function App() {
   const [loading, setLoading] = useState(true);
-  const [loadErr, setLoadErr] = useState(null);
-  const [event, setEvent] = useState(null);
   const [avail, setAvail] = useState([]);
-  const [step, setStep] = useState('build'); // build | pay | done
-  const [doneCode, setDoneCode] = useState(null);
+  const [loadErr, setLoadErr] = useState('');
+  const [step, setStep] = useState('choose');
+  const [choice, setChoice] = useState({});
+  const [guests, setGuests] = useState([{ name: '', age: '', email: '' }]);
+  const [buyer, setBuyer] = useState({ name: '', email: '', phone: '', reference: '', promoter: '' });
+  const [liability, setLiability] = useState(false);
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [result, setResult] = useState(null);
 
-  // tier: null | 'regular' | 'table'
-  const [tier, setTier] = useState(null);
-  // regular tier: an array of {name, age}
-  const [regGuests, setRegGuests] = useState([{ name: '', age: '' }]);
-  // table tier: chosen type + assigned id, table guests, extra guests
-  const [chosenType, setChosenType] = useState(null);
-  const [tableGuests, setTableGuests] = useState([]); // exactly min_pax, {name, age}
-  const [extraGuests, setExtraGuests] = useState([]); // 0..leeway, {name, age}
+  const closed = new Date() > CUTOFF;
 
   useEffect(() => {
     (async () => {
       try {
-        const evR = await supabase.from('events').select('*').eq('is_active', true).limit(1).maybeSingle();
-        if (evR.error) throw evR.error;
-        setEvent(evR.data);
-        try {
-          const aR = await supabase.rpc('after_party_table_availability');
-          if (!aR.error && Array.isArray(aR.data)) setAvail(aR.data);
-          else console.warn('[availability unavailable]', aR.error && aR.error.message);
-        } catch (avErr) { console.warn('[availability failed]', avErr); }
+        const r = await supabase.rpc('after_party_table_availability');
+        if (!r.error && Array.isArray(r.data)) setAvail(r.data);
+        else console.warn('[availability]', r.error && r.error.message);
       } catch (e) {
-        setLoadErr(e.message || 'Failed to load');
+        setLoadErr('Could not load table availability. Please refresh.');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const chosenTable = chosenType
-    ? { table_type: chosenType.table_type, floor: chosenType.floor,
-        min_spend: Number(chosenType.min_spend), min_pax: chosenType.min_pax,
-        max_pax: chosenType.max_pax, label: chosenType.label,
-        assignedId: chosenType.assignedId }
-    : null;
+  const table = choice.kind === 'table' ? choice.table : null;
+  const extras = table ? Math.max(0, guests.length - table.included_passes) : 0;
+  const total = table
+    ? Number(table.package_price) + extras * PASS_PRICE
+    : guests.length * PASS_PRICE;
 
-  if (loading) return <Centered><Spinner size={26} /></Centered>;
-  if (loadErr) return <Centered><div style={{ color: 'var(--warn)', textAlign: 'center' }}>Could not load the after-party page.<br />{loadErr}</div></Centered>;
-
-  return (
-    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
-      <div className="blob" style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(255,27,107,0.28), transparent 70%)', top: -250, left: -150 }} />
-      <div className="blob" style={{ width: 480, height: 480, background: 'radial-gradient(circle, rgba(0,229,255,0.16), transparent 70%)', bottom: -220, right: -140 }} />
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 780, margin: '0 auto', padding: '28px 18px 80px' }}>
-        <Header />
-        {step === 'build' && (
-          <BuildStep
-            avail={avail}
-            tier={tier} setTier={setTier}
-            regGuests={regGuests} setRegGuests={setRegGuests}
-            chosenType={chosenType} setChosenType={setChosenType}
-            chosenTable={chosenTable}
-            tableGuests={tableGuests} setTableGuests={setTableGuests}
-            extraGuests={extraGuests} setExtraGuests={setExtraGuests}
-            onProceed={() => setStep('pay')}
-          />
-        )}
-        {step === 'pay' && (
-          <PayStep
-            event={event}
-            tier={tier}
-            chosenType={chosenType}
-            chosenTable={chosenTable}
-            regGuests={regGuests}
-            tableGuests={tableGuests}
-            extraGuests={extraGuests}
-            onBack={() => setStep('build')}
-            onDone={(code) => { setDoneCode(code); setStep('done'); }}
-          />
-        )}
-        {step === 'done' && <DoneStep code={doneCode} />}
-      </div>
-    </div>
-  );
-}
-
-function Centered({ children }) {
-  return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>{children}</div>;
-}
-
-function Header() {
-  return (
-    <div style={{ marginBottom: 26 }}>
-      <div style={{ fontSize: 11, letterSpacing: 2.5, color: 'var(--accent)', fontWeight: 700, marginBottom: 10 }}>
-        OFFICIAL AFTER-PARTY · THE PRE GAME DAVAO
-      </div>
-      <h1 className="font-headline" style={{ fontSize: 'clamp(26px, 5vw, 40px)', lineHeight: 1.1, margin: 0, fontWeight: 800 }}>
-        Keep the night going at the <span style={{ color: 'var(--brand)' }}>after-party.</span>
-      </h1>
-      <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginTop: 14, fontSize: 15 }}>
-        After the convention wraps, the party moves to The Pre Game Davao. Choose how you want in: regular entry, or reserve a group table at a discounted rate. Tables are limited and go first come, first served.
-      </p>
-    </div>
-  );
-}
-
-function SectionCard({ children }) {
-  return (
-    <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '18px 18px', marginBottom: 16 }}>{children}</div>
-  );
-}
-function SectionTitle({ children }) {
-  return <div className="font-display" style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>{children}</div>;
-}
-
-// ============================================================
-// BUILD STEP  (three tiers)
-// ============================================================
-function BuildStep({
-  avail, tier, setTier, regGuests, setRegGuests,
-  chosenType, setChosenType, chosenTable,
-  tableGuests, setTableGuests, extraGuests, setExtraGuests, onProceed,
-}) {
-  const [checking, setChecking] = useState(false);
-  const [toast, setToast] = useState('');
-  const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2600); };
-
-  // ---- Tier selection ----
-  const pickTier = (t) => {
-    if (t === tier) return;
-    setTier(t);
-    // reset the other tier's state so they never mix
-    if (t === 'regular') {
-      setChosenType(null); setTableGuests([]); setExtraGuests([]);
-      if (regGuests.length === 0) setRegGuests([{ name: '', age: '' }]);
-    } else if (t === 'table') {
-      setRegGuests([{ name: '', age: '' }]);
+  const validateGuests = () => {
+    for (let i = 0; i < guests.length; i++) {
+      const g = guests[i];
+      if (!g.name.trim()) return 'Guest ' + (i + 1) + ' needs a name.';
+      const age = parseInt(g.age, 10);
+      if (!age) return 'Guest ' + (i + 1) + ' needs an age.';
+      if (age < 18) return 'Guest ' + (i + 1) + ' is under 18. This event is strictly 18 and over.';
+      const em = g.email.trim().toLowerCase();
+      if (!em || em.indexOf('@') < 1) return 'Guest ' + (i + 1) + ' needs a valid email. Each guest gets their own entry QR.';
     }
-  };
-
-  // ---- Regular tier guest list ----
-  const setRegGuest = (i, field, val) => setRegGuests((p) => p.map((g, idx) => idx === i ? Object.assign({}, g, { [field]: val }) : g));
-  const addRegGuest = () => setRegGuests((p) => p.concat([{ name: '', age: '' }]));
-  const removeRegGuest = (i) => setRegGuests((p) => p.length > 1 ? p.filter((_, idx) => idx !== i) : p);
-
-  // ---- Table tier ----
-  const grouped = useMemo(() => {
-    const g = { ground: [], second: [] };
-    avail.forEach((r) => { (g[r.floor] || (g[r.floor] = [])).push(r); });
-    return g;
-  }, [avail]);
-
-  const pickType = (row) => {
-    if (row.state === 'full') { showToast('That table type is fully booked.'); return; }
-    const same = chosenType && chosenType.table_type === row.table_type && chosenType.floor === row.floor;
-    if (same) { setChosenType(null); setTableGuests([]); setExtraGuests([]); return; }
-    setChosenType({
-      table_type: row.table_type, floor: row.floor,
-      min_spend: row.min_spend, min_pax: row.min_pax, max_pax: row.max_pax,
-      label: TYPE_LABEL[row.table_type] || row.table_type,
-    });
-    // create exactly min_pax named slots, clear extras
-    setTableGuests(Array.from({ length: row.min_pax }, () => ({ name: '', age: '' })));
-    setExtraGuests([]);
-  };
-  const setTableGuest = (i, field, val) => setTableGuests((p) => p.map((g, idx) => idx === i ? Object.assign({}, g, { [field]: val }) : g));
-  const leeway = chosenTable ? (chosenTable.max_pax - chosenTable.min_pax) : 0;
-  const setExtraGuest = (i, field, val) => setExtraGuests((p) => p.map((g, idx) => idx === i ? Object.assign({}, g, { [field]: val }) : g));
-  const addExtra = () => setExtraGuests((p) => p.length < leeway ? p.concat([{ name: '', age: '' }]) : p);
-  const removeExtra = (i) => setExtraGuests((p) => p.filter((_, idx) => idx !== i));
-
-  // ---- Totals ----
-  const regCount = tier === 'regular' ? regGuests.length : 0;
-  const tableDiscCount = tier === 'table' && chosenTable ? chosenTable.min_pax : 0;
-  const extraCount = tier === 'table' ? extraGuests.length : 0;
-  const entryTotal = regCount * ENTRY_REGULAR + tableDiscCount * ENTRY_DISCOUNTED + extraCount * ENTRY_REGULAR;
-  const tableSpend = tier === 'table' && chosenTable ? chosenTable.min_spend : 0;
-  const grand = entryTotal + tableSpend;
-
-  // ---- Validation to proceed ----
-  const ageOk = (g) => { const a = parseInt(g.age, 10); return a && a >= 18; };
-  const nameOk = (g) => g.name && g.name.trim().length >= 2;
-  let canProceed = false;
-  if (tier === 'regular') {
-    canProceed = regGuests.length > 0 && regGuests.every((g) => nameOk(g) && ageOk(g));
-  } else if (tier === 'table') {
-    canProceed = !!chosenTable
-      && tableGuests.length === (chosenTable ? chosenTable.min_pax : -1)
-      && tableGuests.every((g) => nameOk(g) && ageOk(g))
-      && extraGuests.every((g) => nameOk(g) && ageOk(g));
-  }
-
-  const [proceedErr, setProceedErr] = useState('');
-
-  const proceed = async () => {
-    setProceedErr('');
-    if (!canProceed) {
-      setProceedErr('Please complete every guest name and a valid age (18+) before continuing.');
-      return;
-    }
-    if (tier === 'table' && chosenType) {
-      setChecking(true);
-      try {
-        const res = await supabase.rpc('after_party_pick_table', {
-          p_table_type: chosenType.table_type, p_floor: chosenType.floor,
-        });
-        setChecking(false);
-        if (res.error || !res.data) { showToast('That table type just sold out. Please pick another.'); return; }
-        setChosenType((prev) => prev ? Object.assign({}, prev, { assignedId: res.data }) : prev);
-      } catch (e) { setChecking(false); showToast('Could not reserve the table. Please try again.'); return; }
-    }
-    onProceed();
-  };
-
-  return (
-    <div>
-      {/* TIER SELECTOR */}
-      <SectionCard>
-        <SectionTitle>1 · Choose your entry</SectionTitle>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <TierCard
-            selected={tier === 'regular'}
-            onClick={() => pickTier('regular')}
-            eyebrow="TIER 1 · NO TABLE"
-            title="Regular Entry"
-            price={peso(ENTRY_REGULAR)}
-            priceNote="per person · includes a drink"
-            desc="Get into the after-party. No table. Pay your entry now and you're set for the night."
-          />
-          <TierCard
-            selected={tier === 'table'}
-            onClick={() => pickTier('table')}
-            eyebrow="TIER 2 · WITH A TABLE"
-            title="Table Entry"
-            price={peso(ENTRY_DISCOUNTED)}
-            priceNote="per person · reserve a table below"
-            desc="Reserve a group table at a discounted per-person rate (no drink). Your table's comfortable capacity gets the discounted rate; extra guests are the regular rate."
-          />
-          {/* Tier 3 - informational only */}
-          <div style={{
-            padding: '14px 16px', borderRadius: 12,
-            background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)',
-          }}>
-            <div style={{ fontSize: 10, letterSpacing: 1.5, color: '#FFD37A', fontWeight: 800, marginBottom: 4 }}>TIER 3 · WALK-IN (AT THE DOOR)</div>
-            <div style={{ fontSize: 13, color: '#FFD37A', lineHeight: 1.5 }}>
-              Walk-in entry on the night is {peso(ENTRY_WALKIN)} (includes a drink) and door slots are limited. Buying online above saves you {peso(ENTRY_WALKIN - ENTRY_REGULAR)} and guarantees your spot.
-            </div>
-            <div style={{ fontSize: 13, color: '#FFD37A', lineHeight: 1.5, marginTop: 8, fontWeight: 700 }}>
-              Pre-registration closes August 15. Reservations are only accepted on or before August 15 {'\u2014'} after that, walk-in rates apply at the door.
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* TIER 1 — regular guests */}
-      {tier === 'regular' && (
-        <SectionCard>
-          <SectionTitle>2 · Who's coming? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-soft)' }}>· 18+ only</span></SectionTitle>
-          {regGuests.map((g, i) => (
-            <GuestRow key={i} index={i} guest={g}
-              onName={(v) => setRegGuest(i, 'name', v)}
-              onAge={(v) => setRegGuest(i, 'age', v)}
-              onRemove={regGuests.length > 1 ? () => removeRegGuest(i) : null}
-              priceLabel={peso(ENTRY_REGULAR) + ' · with drink'} />
-          ))}
-          <button onClick={addRegGuest} style={addBtnStyle}>+ Add another person</button>
-        </SectionCard>
-      )}
-
-      {/* TIER 2 — tables */}
-      {tier === 'table' && (
-        <SectionCard>
-          <SectionTitle>2 · Pick your table <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)' }}>· limited, selling fast</span></SectionTitle>
-          <p style={{ fontSize: 12.5, color: 'var(--text-soft)', marginTop: -4, marginBottom: 8, lineHeight: 1.5 }}>
-            The amount shown is the table's minimum spend, consumable on food, drinks, and more at the bar, paid to The Pre Game Davao. The door entry fee and the table's minimum spend are separate charges.
-          </p>
-          {['ground', 'second'].map((floor) => (
-            <div key={floor} style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.5, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 10 }}>
-                {floor === 'ground' ? 'GROUND FLOOR' : 'SECOND FLOOR'}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
-                {(grouped[floor] || []).map((row) => {
-                  const isSel = chosenType && chosenType.table_type === row.table_type && chosenType.floor === row.floor;
-                  const isFull = row.state === 'full';
-                  const isLow = row.state === 'low';
-                  const label = TYPE_LABEL[row.table_type] || row.table_type;
-                  return (
-                    <button key={row.table_type + row.floor} disabled={isFull} onClick={() => pickType(row)}
-                      style={{
-                        textAlign: 'left', cursor: isFull ? 'not-allowed' : 'pointer',
-                        padding: '16px 16px', borderRadius: 14, position: 'relative',
-                        background: isSel ? 'rgba(255,27,107,0.12)' : 'rgba(255,255,255,0.02)',
-                        border: '1px solid ' + (isSel ? 'var(--brand)' : 'var(--border)'),
-                        opacity: isFull ? 0.45 : 1,
-                      }}>
-                      {isSel && <div style={{ position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, color: 'var(--brand)' }}>SELECTED</div>}
-                      {isLow && !isSel && <div style={{ position: 'absolute', top: 12, right: 12, fontSize: 10, fontWeight: 700, color: '#FFD37A', background: 'var(--warn-bg)', border: '1px solid rgba(255,179,0,0.35)', padding: '2px 7px', borderRadius: 999 }}>ONLY A FEW LEFT</div>}
-                      {isFull && <div style={{ position: 'absolute', top: 12, right: 12, fontSize: 10, fontWeight: 700, color: 'var(--text-soft)', border: '1px solid var(--border)', padding: '2px 7px', borderRadius: 999 }}>FULLY BOOKED</div>}
-                      <div style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 6, paddingRight: 90 }}>{label}</div>
-                      <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: isSel ? 'var(--brand)' : 'var(--text)' }}>{peso(row.min_spend)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 2, marginBottom: 8 }}>minimum spend</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Comfortably seats {row.min_pax}, up to {row.max_pax} {'\u00b7'} first {row.min_pax} at {peso(ENTRY_DISCOUNTED)} each</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {chosenTable && (
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>{chosenTable.label} · name your guests</div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-soft)', marginBottom: 12, lineHeight: 1.5 }}>
-                This table seats {chosenTable.min_pax} at the {peso(ENTRY_DISCOUNTED)} rate (all required). You can bring up to {chosenTable.max_pax} total; each guest beyond {chosenTable.min_pax} pays the regular {peso(ENTRY_REGULAR)} entry. 18+ only.
-              </div>
-              {tableGuests.map((g, i) => (
-                <GuestRow key={'t' + i} index={i} guest={g}
-                  onName={(v) => setTableGuest(i, 'name', v)}
-                  onAge={(v) => setTableGuest(i, 'age', v)}
-                  onRemove={null}
-                  priceLabel={peso(ENTRY_DISCOUNTED) + ' · table rate'} />
-              ))}
-              {leeway > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-soft)', margin: '10px 0 8px' }}>
-                    Extra people (optional) {'\u00b7'} up to {leeway} more at {peso(ENTRY_REGULAR)} each
-                  </div>
-                  {extraGuests.map((g, i) => (
-                    <GuestRow key={'e' + i} index={chosenTable.min_pax + i} guest={g}
-                      onName={(v) => setExtraGuest(i, 'name', v)}
-                      onAge={(v) => setExtraGuest(i, 'age', v)}
-                      onRemove={() => removeExtra(i)}
-                      priceLabel={peso(ENTRY_REGULAR) + ' · with drink'} />
-                  ))}
-                  {extraGuests.length < leeway && (
-                    <button onClick={addExtra} style={addBtnStyle}>+ Add extra person ({peso(ENTRY_REGULAR)})</button>
-                  )}
-                  {extraGuests.length >= leeway && (
-                    <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 6 }}>That's the maximum this table can seat ({chosenTable.max_pax} total).</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </SectionCard>
-      )}
-
-      {/* SUMMARY + PROCEED */}
-      {tier && (
-        <SectionCard>
-          <SectionTitle>Your total</SectionTitle>
-          <div style={{ fontSize: 13.5, display: 'grid', gap: 7 }}>
-            {tier === 'regular' && <SumRow label={regCount + ' × regular @ ' + peso(ENTRY_REGULAR)} value={peso(regCount * ENTRY_REGULAR)} />}
-            {tier === 'table' && chosenTable && <SumRow label={chosenTable.min_pax + ' × table @ ' + peso(ENTRY_DISCOUNTED)} value={peso(tableDiscCount * ENTRY_DISCOUNTED)} />}
-            {tier === 'table' && extraCount > 0 && <SumRow label={extraCount + ' × extra @ ' + peso(ENTRY_REGULAR)} value={peso(extraCount * ENTRY_REGULAR)} />}
-            <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-            <SumRow label="Entry subtotal" value={peso(entryTotal)} />
-            {tier === 'table' && chosenTable && <SumRow label="Table minimum spend" value={peso(tableSpend)} />}
-            <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-            <SumRow label="Grand total" value={peso(grand)} big />
-          </div>
-          {toast && <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--warn-bg)', border: '1px solid rgba(255,179,0,0.35)', color: '#FFD37A', fontSize: 12.5 }}>{toast}</div>}
-          {proceedErr && <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--danger-bg)', border: '1px solid rgba(255,23,68,0.3)', color: '#FF6B85', fontSize: 12.5 }}>{proceedErr}</div>}
-          <button disabled={!canProceed || checking} onClick={proceed}
-            style={{
-              marginTop: 18, width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-              background: canProceed ? 'linear-gradient(90deg, #FF1B6B, #C724FF)' : 'rgba(255,255,255,0.06)',
-              color: '#fff', fontWeight: 700, fontSize: 15, cursor: canProceed ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
-            }}>
-            {checking ? 'Checking table...' : 'Continue to payment \u2192'}
-          </button>
-        </SectionCard>
-      )}
-    </div>
-  );
-}
-
-const addBtnStyle = {
-  marginTop: 8, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-  background: 'rgba(255,255,255,0.04)', border: '1px dashed var(--border-strong)',
-  color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', width: '100%',
-};
-
-function TierCard({ selected, onClick, eyebrow, title, price, priceNote, desc }) {
-  return (
-    <button onClick={onClick} style={{
-      textAlign: 'left', cursor: 'pointer', padding: '16px 16px', borderRadius: 14,
-      background: selected ? 'rgba(255,27,107,0.12)' : 'rgba(255,255,255,0.02)',
-      border: '1px solid ' + (selected ? 'var(--brand)' : 'var(--border)'),
-      display: 'flex', gap: 14, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap',
-    }}>
-      <div style={{ flex: '1 1 320px' }}>
-        <div style={{ fontSize: 10, letterSpacing: 1.5, color: selected ? 'var(--brand)' : 'var(--text-soft)', fontWeight: 800, marginBottom: 4 }}>{eyebrow}</div>
-        <div className="font-display" style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>{title}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{desc}</div>
-      </div>
-      <div style={{ textAlign: 'right' }}>
-        <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: selected ? 'var(--brand)' : 'var(--text)' }}>{price}</div>
-        <div style={{ fontSize: 10.5, color: 'var(--text-soft)' }}>{priceNote}</div>
-      </div>
-    </button>
-  );
-}
-
-function GuestRow({ index, guest, onName, onAge, onRemove, priceLabel }) {
-  return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>Guest {index + 1} {'\u00b7'} {priceLabel}</div>
-        {onRemove && <button onClick={onRemove} style={{ fontSize: 11, color: 'var(--text-soft)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>remove</button>}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px', gap: 8 }}>
-        <input value={guest.name} onChange={(e) => onName(e.target.value)} placeholder="Full name" style={{ padding: '10px 12px', borderRadius: 9, fontSize: 14 }} />
-        <input value={guest.age} inputMode="numeric" onChange={(e) => onAge(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Age" style={{ padding: '10px 12px', borderRadius: 9, fontSize: 14 }} />
-      </div>
-    </div>
-  );
-}
-
-function SumRow({ label, value, big }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ color: big ? 'var(--text)' : 'var(--text-muted)', fontWeight: big ? 800 : 500, fontSize: big ? 16 : 13.5 }}>{label}</span>
-      <span className="font-display" style={{ color: big ? 'var(--brand)' : 'var(--text)', fontWeight: big ? 800 : 600, fontSize: big ? 18 : 13.5 }}>{value}</span>
-    </div>
-  );
-}
-
-// ============================================================
-// PAY STEP  (Tier 1 -> GCash; Tier 2 -> Pre Game QR only)
-// ============================================================
-function PayStep({ event, tier, chosenType, chosenTable, regGuests, tableGuests, extraGuests, onBack, onDone }) {
-  const [buyerName, setBuyerName] = useState('');
-  const [buyerEmail, setBuyerEmail] = useState('');
-  const [buyerPhone, setBuyerPhone] = useState('');
-  const [payRef, setPayRef] = useState('');
-  const [receipt, setReceipt] = useState(null);
-  const [liability, setLiability] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState(null);
-  const fileRef = useRef(null);
-
-  const gcash = (event && event.payment_instructions && event.payment_instructions.gcash) || {};
-
-  // Build guest payload + totals from the tier.
-  const guestPayload = useMemo(() => {
-    if (tier === 'regular') {
-      return regGuests.map((g) => ({ name: g.name.trim(), email: null, phone: null, age: parseInt(g.age, 10), kind: 'regular' }));
-    }
-    if (tier === 'table') {
-      const disc = tableGuests.map((g) => ({ name: g.name.trim(), email: null, phone: null, age: parseInt(g.age, 10), kind: 'discounted' }));
-      const ext = extraGuests.map((g) => ({ name: g.name.trim(), email: null, phone: null, age: parseInt(g.age, 10), kind: 'regular' }));
-      return disc.concat(ext);
-    }
-    return [];
-  }, [tier, regGuests, tableGuests, extraGuests]);
-
-  const entryTotal = guestPayload.reduce((s, g) => s + (g.kind === 'discounted' ? ENTRY_DISCOUNTED : ENTRY_REGULAR), 0);
-  const tableSpend = tier === 'table' && chosenTable ? chosenTable.min_spend : 0;
-  const isTable = tier === 'table';
-  // What the buyer pays HERE: Tier 1 -> entry to GCash. Tier 2 -> entry + table, all to Pre Game QR.
-  const payHereTotal = isTable ? (entryTotal + tableSpend) : entryTotal;
-
-  const validate = () => {
-    if (!buyerName.trim()) return 'Please enter the lead booker name.';
-    if (!buyerEmail.trim() || buyerEmail.indexOf('@') < 0) return 'Please enter a valid email.';
-    if (!buyerPhone.trim()) return 'Please enter a contact number.';
-    if (payRef.trim().length < 4) return 'Please enter your payment reference number.';
-    if (!receipt) return 'Please upload your payment receipt.';
-    if (!liability) return 'Please tick the acknowledgment to continue.';
-    return null;
-  };
-
-  const uploadReceipt = async (file, prefix) => {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = 'afterparty/' + prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-    const up = await supabase.storage.from('receipts').upload(path, file, { upsert: false });
-    if (up.error) throw new Error('Receipt upload failed: ' + up.error.message);
-    return path;
+    const emails = guests.map((g) => g.email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) return 'Each guest needs a different email address.';
+    return '';
   };
 
   const submit = async () => {
-    const v = validate();
-    if (v) { setErr(v); return; }
-    setErr(null);
-    setSubmitting(true);
+    setErr(''); setBusy(true);
     try {
-      if (isTable && chosenType) {
-        const assignedId = chosenType.assignedId;
-        const chk = await supabase.rpc('tables_taken', { p_table_ids: [assignedId] }).then(r => r, () => null);
-        if (chk && !chk.error && Array.isArray(chk.data) && chk.data.includes(assignedId)) {
-          throw new Error('That table was just taken by someone else. Please go back and choose another.');
-        }
-      }
-      const receiptPath = await uploadReceipt(receipt, isTable ? 'table' : 'entry');
+      const path = 'afterparty/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) +
+        '.' + (file.name.split('.').pop() || 'jpg');
+      const up = await supabase.storage.from('receipts').upload(path, file, { upsert: false });
+      if (up.error) throw new Error('Receipt upload failed: ' + up.error.message);
 
-      // For Tier 2 the single Pre Game payment covers both entry and table,
-      // so both reference/receipt fields point at that same payment. For
-      // Tier 1 it's the entry payment to GCash.
-      const rpc = await supabase.rpc('create_after_party_reservation', {
-        p_table_id: isTable && chosenType ? chosenType.assignedId : null,
-        p_buyer_name: buyerName.trim(),
-        p_buyer_email: buyerEmail.trim(),
-        p_buyer_phone: buyerPhone.trim(),
-        p_entry_reference: payRef.trim(),
-        p_entry_receipt_path: receiptPath,
-        p_table_reference: isTable ? payRef.trim() : null,
-        p_table_receipt_path: isTable ? receiptPath : null,
-        p_liability: true,
-        p_guests: guestPayload,
-        p_order_id: null,
-        p_source: 'online',
+      let tableId = null;
+      if (table) {
+        const pick = await supabase.rpc('after_party_pick_table', {
+          p_table_type: table.table_type, p_floor: table.floor,
+        });
+        if (pick.error) throw new Error(pick.error.message);
+        tableId = pick.data;
+        if (!tableId) throw new Error('That table type just sold out. Please choose another.');
+      }
+
+      const rpc = await supabase.rpc('create_grand_encore_reservation', {
+        p_table_id: tableId,
+        p_buyer_name: buyer.name,
+        p_buyer_email: buyer.email,
+        p_buyer_phone: buyer.phone,
+        p_reference: buyer.reference,
+        p_receipt_path: path,
+        p_liability: liability,
+        p_guests: guests.map((g) => ({ name: g.name.trim(), age: parseInt(g.age, 10), email: g.email.trim().toLowerCase() })),
+        p_promoter_code: buyer.promoter.trim() || null,
       });
       if (rpc.error) throw new Error(rpc.error.message);
-      onDone(rpc.data);
+
+      setResult(rpc.data);
+      setStep('done');
+      window.scrollTo(0, 0);
     } catch (e) {
       setErr(e.message || 'Something went wrong. Please try again.');
-      setSubmitting(false);
+    } finally {
+      setBusy(false);
     }
   };
 
-  return (
-    <div>
-      <SectionCard>
-        <SectionTitle>Lead booker</SectionTitle>
-        <Field label="FULL NAME" value={buyerName} onChange={setBuyerName} placeholder="Your name" />
-        <Field label="EMAIL" value={buyerEmail} onChange={setBuyerEmail} placeholder="you@email.com" type="email" />
-        <Field label="CONTACT NUMBER" value={buyerPhone} onChange={setBuyerPhone} placeholder="+63 9XX XXX XXXX" />
-      </SectionCard>
+  if (loading) {
+    return <Shell><div style={{ textAlign: 'center', padding: 70, color: 'var(--text-soft)' }}>Loading...</div></Shell>;
+  }
 
-      {/* PAYMENT — routing depends on tier */}
-      {isTable ? (
-        <SectionCard>
-          <SectionTitle>Payment {'\u2192'} The Pre Game Davao</SectionTitle>
-          <div style={{ fontSize: 12.5, color: 'var(--text-soft)', marginBottom: 14, lineHeight: 1.5 }}>
-            Pay the total below to The Pre Game Davao via their QR. This covers your table's minimum spend and your group's entry in one payment.
+  if (closed) {
+    return (
+      <Shell>
+        <Header />
+        <Card style={{ background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)', textAlign: 'center', padding: '34px 24px' }}>
+          <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: '#FFD37A', marginBottom: 10 }}>
+            Online booking has closed
           </div>
-          <div style={{ padding: 16, borderRadius: 12, marginBottom: 16, textAlign: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-strong)' }}>
-            <a href="/pregame-qr.png" target="_blank" rel="noreferrer" style={{ display: 'block', width: 260, maxWidth: '100%', margin: '0 auto 10px' }}>
-              <img src="/pregame-qr.png" alt="The Pre Game Social GoTyme Bank InstaPay QR" style={{ width: '100%', display: 'block', borderRadius: 12 }} />
-            </a>
-            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginBottom: 12 }}>Scan with any InstaPay-enabled app {'\u00b7'} tap the QR to enlarge</div>
-            <div className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>{peso(payHereTotal)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 2 }}>total (table minimum + entry)</div>
+          <div style={{ fontSize: 14.5, color: '#FFD37A', lineHeight: 1.7 }}>
+            Pre-registration ended on 20 August. You can still come on the night: walk-in entry is {peso(WALKIN_PRICE)} at the door, complimentary drinks included.<br /><br />
+            Doors from 9:00 PM at The Pre Game Davao. Strictly 18 and over, physical ID required.
           </div>
-          <Field label="PAYMENT REFERENCE" value={payRef} onChange={setPayRef} placeholder="e.g. 1234567890" mono />
-          <ReceiptUpload file={receipt} setFile={setReceipt} inputRef={fileRef} label="PAYMENT RECEIPT SCREENSHOT" />
-        </SectionCard>
-      ) : (
-        <SectionCard>
-          <SectionTitle>Payment {'\u2192'} GCash</SectionTitle>
-          <div style={{ padding: 16, borderRadius: 12, marginBottom: 16, background: 'linear-gradient(135deg, rgba(0,124,240,0.18), rgba(0,196,255,0.08))', border: '1px solid rgba(0,196,255,0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, flexWrap: 'wrap', gap: 4 }}>
-              <div className="font-display" style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, color: 'var(--accent)' }}>SEND VIA GCASH</div>
-              <div className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>{peso(payHereTotal)}</div>
-            </div>
-            <PayLine label="ACCOUNT NAME" value={gcash.account_name || 'Kyla Don'} />
-            <PayLine label="NUMBER" value={gcash.account_number || '09534900227'} mono />
-          </div>
-          <Field label="GCASH REFERENCE NUMBER" value={payRef} onChange={setPayRef} placeholder="e.g. 1234567890" mono />
-          <ReceiptUpload file={receipt} setFile={setReceipt} inputRef={fileRef} label="RECEIPT SCREENSHOT" />
-        </SectionCard>
+        </Card>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <Header />
+      {loadErr && (
+        <Card style={{ background: 'var(--danger-bg)', border: '1px solid rgba(255,23,68,0.4)' }}>
+          <div style={{ fontSize: 13.5, color: '#FF6B85' }}>{loadErr}</div>
+        </Card>
       )}
 
-      {/* LIABILITY */}
-      <SectionCard>
-        <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer' }}>
-          <input type="checkbox" checked={liability} onChange={(e) => setLiability(e.target.checked)} style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0, accentColor: '#FF1B6B' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            I understand that all rules, payments, tickets, and orders inside the bar are held and managed by The Pre Game Davao. Kreation Philippines has no control over the rules or payment structures the bar enforces before or during the party, and Kreation Philippines is not liable for any incident occurring at the bar.
-            <span style={{ display: 'block', marginTop: 8, color: 'var(--text)', fontWeight: 700 }}>
-              Every guest must bring a physical ID. The bar inspects IDs at the door before entry {'\u2014'} no ID, no entry. It's an 18+ night.
-            </span>
-          </span>
-        </label>
-      </SectionCard>
+      {step === 'choose' && (
+        <ChooseStep avail={avail} choice={choice} setChoice={setChoice}
+          onNext={() => {
+            const t = choice.kind === 'table' ? choice.table : null;
+            setGuests(t
+              ? Array.from({ length: t.included_passes }, () => ({ name: '', age: '', email: '' }))
+              : [{ name: '', age: '', email: '' }]);
+            setErr('');
+            setStep('guests');
+            window.scrollTo(0, 0);
+          }} />
+      )}
 
-      {err && <div style={{ background: 'var(--danger-bg)', color: '#FF6B85', padding: '11px 14px', borderRadius: 10, fontSize: 12.5, marginBottom: 14, lineHeight: 1.5, border: '1px solid rgba(255,23,68,0.3)' }}>{err}</div>}
+      {step === 'guests' && (
+        <GuestsStep choice={choice} guests={guests} setGuests={setGuests} err={err}
+          onBack={() => { setErr(''); setStep('choose'); window.scrollTo(0, 0); }}
+          onNext={() => {
+            const v = validateGuests();
+            if (v) { setErr(v); return; }
+            setErr(''); setStep('pay'); window.scrollTo(0, 0);
+          }} />
+      )}
 
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onBack} disabled={submitting} style={{ padding: '13px 18px', borderRadius: 12, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-strong)', color: 'var(--text)', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', opacity: submitting ? 0.5 : 1 }}>{'\u2190'} Back</button>
-        <button onClick={submit} disabled={submitting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(90deg, #FF1B6B, #C724FF)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: submitting ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {submitting ? <><Spinner size={15} color="#fff" /> Submitting...</> : 'Submit reservation'}
-        </button>
+      {step === 'pay' && (
+        <PayStep total={total} buyer={buyer} setBuyer={setBuyer} liability={liability} setLiability={setLiability}
+          file={file} setFile={setFile} busy={busy} err={err}
+          onBack={() => { setErr(''); setStep('guests'); window.scrollTo(0, 0); }}
+          onSubmit={submit} />
+      )}
+
+      {step === 'done' && result && <DoneStep result={result} />}
+
+      <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-soft)', marginTop: 28, lineHeight: 1.7 }}>
+        Grand Encore is produced by UKD, hosted at The Pre Game Davao.<br />
+        Ticketing by Kreation Philippines &nbsp;·&nbsp; kreationph@gmail.com
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, type, mono }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
-      <input type={type || 'text'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={mono ? 'font-mono' : ''} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, fontSize: 15, boxSizing: 'border-box' }} />
-    </div>
-  );
-}
-
-function PayLine({ label, value, mono }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', gap: 10 }}>
-      <span style={{ fontSize: 11, letterSpacing: 1, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{label}</span>
-      <span className={mono ? 'font-mono' : ''} style={{ fontSize: 14, fontWeight: 700 }}>{value}</span>
-    </div>
-  );
-}
-
-function ReceiptUpload({ file, setFile, inputRef, label }) {
-  const onFile = (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (f.size > 8 * 1024 * 1024) { alert('File too large (max 8 MB).'); return; }
-    setFile(f);
-  };
-  return (
-    <div>
-      <div style={{ fontSize: 11, letterSpacing: 1, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
-      <div onClick={() => inputRef.current && inputRef.current.click()} style={{ padding: 16, borderRadius: 12, cursor: 'pointer', textAlign: 'center', background: file ? 'rgba(0,230,118,0.06)' : 'rgba(255,255,255,0.02)', border: '1.5px dashed ' + (file ? 'rgba(0,230,118,0.4)' : 'var(--border-strong)') }}>
-        <input type="file" ref={inputRef} accept="image/*" onChange={onFile} style={{ display: 'none' }} />
-        {file ? (
-          <div><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--success)' }}>{file.name}</div><div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 4 }}>{(file.size / 1024).toFixed(0)} KB {'\u00b7'} tap to change</div></div>
-        ) : (
-          <div><div style={{ fontSize: 13, fontWeight: 600 }}>Tap to upload receipt</div><div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 4 }}>PNG or JPG, max 8 MB</div></div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DoneStep({ code }) {
-  return (
-    <SectionCard>
-      <div style={{ textAlign: 'center', padding: '20px 0' }}>
-        <div style={{ fontSize: 42, marginBottom: 10 }}>{'\ud83c\udf89'}</div>
-        <h2 className="font-headline" style={{ fontSize: 24, margin: '0 0 10px' }}>Reservation received</h2>
-        <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, fontSize: 14.5, maxWidth: 460, margin: '0 auto 18px' }}>
-          Your reservation is in and awaiting payment verification. Our team checks receipts within 24 hours and will email you once your after-party spot is confirmed.
-        </p>
-        <div style={{ display: 'inline-block', padding: '10px 18px', borderRadius: 10, background: 'rgba(255,27,107,0.1)', border: '1px solid var(--brand)' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: 1 }}>YOUR REFERENCE</div>
-          <div className="font-mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand)', marginTop: 2 }}>{code}</div>
-        </div>
-        <p style={{ color: 'var(--text-soft)', fontSize: 12, marginTop: 18 }}>Keep this code. Present the lead booker name at the door.</p>
-      </div>
-    </SectionCard>
+    </Shell>
   );
 }
 
