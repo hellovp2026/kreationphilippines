@@ -621,7 +621,7 @@ function HomeNav({ onBuyTickets, onOpenCompete, onOpenRegister, onOpenBanRevoke 
       {/* Desktop link cluster — hidden on mobile via .nav-links-desktop CSS */}
       <div className="nav-links-desktop" style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
         <a href="#tickets" style={navLinkStyle}>Tickets</a>
-        <a href="#afterparty" style={navLinkStyle}>After-Party</a>
+        <a href="#afterparty" style={navLinkStyle}>Grand Encore</a>
         <a href="#archive" style={navLinkStyle}>Hall of Fame</a>
         <a
           href="#"
@@ -747,7 +747,7 @@ function HomeNav({ onBuyTickets, onOpenCompete, onOpenRegister, onOpenBanRevoke 
           animation: 'drawer-slide 0.18s ease-out',
         }}>
           <a href="#tickets" onClick={() => setMenuOpen(false)} style={drawerLinkStyle}>Tickets</a>
-          <a href="#afterparty" onClick={() => setMenuOpen(false)} style={drawerLinkStyle}>After-Party</a>
+          <a href="#afterparty" onClick={() => setMenuOpen(false)} style={drawerLinkStyle}>Grand Encore</a>
           <a href="#archive" onClick={() => setMenuOpen(false)} style={drawerLinkStyle}>Hall of Fame</a>
           <a href="#" onClick={(e) => { e.preventDefault(); navTo(onOpenCompete)(); }} style={drawerLinkStyle}>
             Event Mechanics
@@ -2034,25 +2034,25 @@ function MysteryCard() {
 function HomeAfterParty() {
   const cards = [
     {
-      eyebrow: 'REGULAR ENTRY',
+      eyebrow: 'ON YOUR OWN',
       price: '\u20b1450',
       note: 'per person',
-      desc: 'Includes one drink. No table needed, just come through.',
+      desc: 'One entry pass, complimentary drinks included. No table, just come through.',
       accent: 'var(--brand)',
     },
     {
-      eyebrow: 'BRING YOUR GROUP',
-      price: '\u20b1300',
-      note: 'per person, with a table',
-      desc: 'Reserve a table for your group and everyone on it gets the discounted rate. Tables have a minimum spend, consumable at the bar.',
+      eyebrow: 'BOOK A TABLE',
+      price: 'from \u20b13,500',
+      note: 'all-in for your group',
+      desc: 'One price bundles entry passes for your group and a consumable to spend at the bar. Passes work out at \u20b1300 a head. Seven table types across both floors.',
       accent: 'var(--brand-2)',
       featured: true,
     },
     {
       eyebrow: 'AT THE DOOR',
-      price: '\u20b1500',
+      price: '\u20b1600',
       note: 'walk-in, if slots remain',
-      desc: 'Includes a drink. Door slots are limited, so booking ahead saves you \u20b150 and guarantees entry.',
+      desc: 'Complimentary drinks included. Door slots are limited, so booking ahead saves you \u20b1150 and guarantees entry.',
       accent: 'var(--text-soft)',
     },
   ];
@@ -2078,16 +2078,15 @@ function HomeAfterParty() {
           fontSize: 'clamp(26px, 4.2vw, 54px)', lineHeight: 1.08,
           margin: '0 0 24px', fontWeight: 800,
         }}>
-          Join the{' '}
-          <span style={{ color: 'var(--brand)' }}>After-Party.</span>
+          <span style={{ color: 'var(--brand)' }}>Grand Encore.</span>
         </h2>
         <p style={{
           fontSize: 'clamp(15px, 1.4vw, 18px)', lineHeight: 1.65,
           color: 'var(--text-muted)', margin: 0, maxWidth: 700,
         }}>
-          When the convention wraps, the night keeps going at The Pre Game Davao. Music, drinks,
-          and everyone you spent the day with. We are opening it to ticket buyers first, before it
-          goes out to everyone else.
+          When the convention wraps, the night keeps going at The Pre Game Davao. DJs, drinks,
+          and everyone you spent the day with. Strictly 18 and over, physical ID required at the
+          door. Booking closes 20 August.
         </p>
       </div>
 
@@ -2726,8 +2725,8 @@ function HomeFAQ({ event }) {
       a: "Your group must first be registered to receive a DKC code (read the Mechanics and submit your entry). Once you have a DKC code, click GET TICKETS on the homepage and choose the 'Pay As Participant' tile in Step 1. Enter your DKC code, tick the members you're paying for, and submit. Each member is ₱300. Tickets are issued once all members of your group have paid.",
     },
     {
-      q: "What is the After-Party Pass?",
-      a: "Our exclusive after-party at The Pre Game Davao after the convention. Regular entry is ₱450 (includes a drink), and you can reserve a group table with a discounted rate. It has its own booking page, offered to ticket buyers first. It's an 18+ night.",
+      q: "What is Grand Encore?",
+      a: "The official K-Pop after party at The Pre Game Davao once the convention wraps, produced by UKD. Entry is ₱450 per person with complimentary drinks, or book a table from ₱3,500 which bundles entry passes for your group with a consumable to spend at the bar. It has its own booking page and closes 20 August. Strictly 18+, physical ID required. You do not need a convention ticket to come.",
     },
     {
       q: "Where is the venue exactly?",
