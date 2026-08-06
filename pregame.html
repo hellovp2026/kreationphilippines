@@ -149,7 +149,9 @@ function Portal({ data, busy, onRefresh, onSignOut }) {
     return guests.filter((g) =>
       (g.guest_name || '').toLowerCase().includes(t) ||
       (g.reservation_code || '').toLowerCase().includes(t) ||
-      (g.table_code || '').toLowerCase().includes(t));
+      (g.table_code || '').toLowerCase().includes(t) ||
+      (g.guest_email || '').toLowerCase().includes(t) ||
+      (g.promoter_code || '').toLowerCase().includes(t));
   }, [guests, q]);
 
   const exportCsv = () => {
@@ -157,10 +159,11 @@ function Portal({ data, busy, onRefresh, onSignOut }) {
       const str = String(v == null ? '' : v);
       return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
     };
-    const rows = [['Guest name', 'Reservation code', 'Table', 'Floor']];
+    const rows = [['Guest name', 'Email', 'Reservation code', 'Table', 'Floor', 'Pass type', 'Promoter code']];
     filtered.forEach((g) => rows.push([
-      g.guest_name, g.reservation_code, g.table_code,
+      g.guest_name, g.guest_email || '', g.reservation_code, g.table_code,
       g.floor === 'ground' ? 'Ground' : g.floor === 'second' ? 'Second' : '',
+      g.entry_type || '', g.promoter_code || '',
     ]));
     const csv = rows.map((r) => r.map(esc).join(',')).join('\r\n');
     // BOM so Excel opens UTF-8 names correctly.
@@ -201,21 +204,46 @@ function Portal({ data, busy, onRefresh, onSignOut }) {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <Stat label="CONFIRMED GUESTS" value={s.confirmed_heads || 0} color="var(--success)" />
           <Stat label="RESERVATIONS" value={s.confirmed_reservations || 0} />
-          <Stat label="TABLES BOOKED" value={s.tables_booked || 0} color="var(--brand-2)" />
+          <Stat label="TABLES BOOKED" value={s.tables_taken || 0} color="var(--brand-2)" />
           <Stat label="AWAITING PAYMENT CHECK" value={(s.pending_heads || 0) + ' guests'} color="var(--warn)" />
         </div>
 
         {/* Money */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', marginBottom: 20 }}>
-          <div className="font-display" style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Figures for settlement</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
-            <MoneyLine label="Your per-head cut (confirmed)" value={peso(s.pregame_cut_total)} color="var(--success)" />
-            <MoneyLine label="Table minimum spends collected" value={peso(s.table_minspend_total)} color="var(--brand-2)" />
-            <MoneyLine label="Entry collected by Pre Game" value={peso(s.entry_collected_by_pregame)} />
-            <MoneyLine label="Entry collected by Kreation" value={peso(s.entry_collected_by_kreation)} />
+          <div className="font-display" style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>Figures for settlement</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginBottom: 14, lineHeight: 1.6 }}>
+            Confirmed bookings only. All money is collected by Kreation and disbursed from there.
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+            <div>
+              <MoneyLine label="Pre Game share" value={peso(s.pregame_share)} color="var(--success)" />
+              <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4, lineHeight: 1.5 }}>
+                of which {peso(s.consumable_total)} is table consumable
+              </div>
+            </div>
+            <MoneyLine label="UKD share" value={peso(s.ukd_share)} color="var(--brand-2)" />
+            <MoneyLine label="Kreation share" value={peso(s.kph_share)} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              Gross confirmed <strong className="font-mono" style={{ color: 'var(--text)' }}>{peso(s.gross)}</strong>
+            </div>
+            {(s.pending_gross || 0) > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--warn)' }}>
+                Awaiting payment check <strong className="font-mono">{peso(s.pending_gross)}</strong> (not counted above)
+              </div>
+            )}
+            {(s.legacy_reservations || 0) > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--text-soft)' }}>
+                Includes {s.legacy_reservations} pre-agreement booking{s.legacy_reservations === 1 ? '' : 's'} worth {peso(s.legacy_gross)}, still on the old two-way split
+              </div>
+            )}
+          </div>
+
           <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 12, lineHeight: 1.6 }}>
-            Confirmed reservations only. Final settlement is reconciled with Kreation Philippines and may include items not recorded here, such as door walk-ins and passes sold before the after-party moved to its own booking page.
+            Shares sum to the gross. Door walk-ins are settled separately at the venue and do not appear here.
           </div>
         </div>
 
@@ -246,15 +274,19 @@ function Portal({ data, busy, onRefresh, onSignOut }) {
             <div style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
-                  <tr><th>GUEST NAME</th><th>RESERVATION</th><th>TABLE</th></tr>
+                  <tr><th>GUEST NAME</th><th>EMAIL</th><th>RESERVATION</th><th>TABLE</th><th>PROMOTER</th></tr>
                 </thead>
                 <tbody>
                   {filtered.map((g, i) => (
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{g.guest_name}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{g.guest_email || '\u2014'}</td>
                       <td className="font-mono" style={{ color: 'var(--brand)' }}>{g.reservation_code}</td>
                       <td style={{ color: g.table_code === 'No table' ? 'var(--text-soft)' : 'var(--brand-2)' }}>
                         {g.table_code}{g.floor ? ' \u00b7 ' + (g.floor === 'ground' ? 'Ground' : 'Second') : ''}
+                      </td>
+                      <td className="font-mono" style={{ fontSize: 12.5, color: g.promoter_code ? 'var(--accent)' : 'var(--text-soft)' }}>
+                        {g.promoter_code || '\u2014'}
                       </td>
                     </tr>
                   ))}
