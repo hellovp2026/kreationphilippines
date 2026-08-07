@@ -1261,7 +1261,14 @@ async function generateTicketsForRegistration(registration, currentUserEmail) {
   }
 
   // Block generation if anyone hasn't paid
-  const unpaid = members.filter(function(m) { return m.payment_status !== 'paid'; });
+  // 'waived_overlap' means the member already paid as part of another group,
+  // so their fee here is deliberately waived. It is settled, not unpaid.
+  // Treating it as unpaid blocked ticket generation for any group containing
+  // a dual-category performer, while the registration still showed as paid
+  // because the auto-flip logic accepts waived_overlap. Same rule both sides.
+  const unpaid = members.filter(function(m) {
+    return m.payment_status !== 'paid' && m.payment_status !== 'waived_overlap';
+  });
   if (unpaid.length > 0) {
     throw new Error(unpaid.length + ' member(s) still unpaid. Cannot generate tickets yet.');
   }
