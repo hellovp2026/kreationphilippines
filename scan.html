@@ -962,10 +962,14 @@ function GroupsTab() {
     setLoading(true);
     const [regsRes, ticketsRes, membersRes] = await Promise.all([
       // Exclude only truly-dead registrations. Actual status values used in
-      // the system: 'pending', 'meeting_scheduled', 'approved', 'denied',
-      // 'confirmed', 'paid', 'withdrawn'. Hide 'denied' here; 'withdrawn'
-      // is filtered out in groupStats below (plain JS, safest).
-      supabase.from('registrations').select('*').not('status', 'eq', 'denied'),
+      // Registration statuses actually written by admin.html are:
+      // 'pending', 'confirmed', 'paid', 'rejected', 'withdrawn'.
+      // An earlier version filtered on 'denied', which is not a value this
+      // system uses, so the filter matched nothing and rejected groups
+      // appeared in the scanner. Excluded here AND in groupStats, and the
+      // list is an ALLOWLIST there so a new status cannot leak in silently.
+      supabase.from('registrations').select('*')
+        .not('status', 'in', '("rejected","withdrawn","denied")'),
       supabase.from('tickets').select('*').eq('tier_code', 'P'),
       supabase.from('registration_members').select('*'),
     ]);
@@ -1002,8 +1006,12 @@ function GroupsTab() {
     const ticketsById = {};
     tickets.forEach((t) => { ticketsById[t.id] = t; });
 
+    // Allowlist rather than denylist: only groups that can actually be
+    // checked in appear. Anything rejected or withdrawn is excluded, and an
+    // unrecognised status is excluded too rather than silently shown.
+    const SHOWN = ['pending', 'confirmed', 'paid'];
     return registrations
-      .filter((reg) => reg.status !== 'withdrawn')
+      .filter((reg) => SHOWN.indexOf(reg.status) !== -1)
       .map((reg) => {
       const groupMembers = members
         .filter((m) => m.registration_id === reg.id && m.payment_status !== 'dropped')
