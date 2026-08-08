@@ -12540,8 +12540,18 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
   const waivedMembers = nonDropped.filter((m) => m.payment_status === 'waived_overlap');
   const billable = nonDropped.filter((m) => m.payment_status !== 'waived_overlap');
   const paidCount = nonDropped.filter((m) => m.payment_status === 'paid').length;
+  const waivedCount = nonDropped.filter((m) => m.payment_status === 'waived_overlap').length;
   const unpaidCount = nonDropped.filter((m) => m.payment_status === 'unpaid').length;
-  const allPaid = unpaidCount === 0 && nonDropped.length > 0;
+  // "Settled" means nobody is outstanding. That is NOT the same as paid:
+  // an entry where every member is waived has nobody outstanding and has
+  // received no money. Reporting that as "all members paid" is false, and
+  // it previously left the generate button enabled on entries that had
+  // collected nothing.
+  const allSettled = unpaidCount === 0 && nonDropped.length > 0;
+  const allPaid = allSettled && paidCount > 0;
+  // Every member waived: their fee and their ticket both belong to the
+  // counterpart entry, so there is nothing to issue here.
+  const nothingToIssue = allSettled && paidCount === 0;
   const totalCollected = payments
     .filter((p) => p.verified_at)
     .reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -12663,13 +12673,20 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
       <Section title="Payment Progress">
         <div style={{
           padding: 14, borderRadius: 10,
-          background: allPaid ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 159, 26, 0.06)',
-          border: '1px solid ' + (allPaid ? 'rgba(0, 230, 118, 0.25)' : 'rgba(255, 159, 26, 0.25)'),
+          background: (allPaid && !nothingToIssue) ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 159, 26, 0.06)',
+          border: '1px solid ' + ((allPaid && !nothingToIssue) ? 'rgba(0, 230, 118, 0.25)' : 'rgba(255, 159, 26, 0.25)'),
           marginBottom: 10,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: allPaid ? '#00E676' : '#FFD08A' }}>
-              {allPaid ? 'ALL MEMBERS PAID' : (paidCount + ' of ' + nonDropped.length + ' members paid')}
+            <span style={{ fontSize: 13, fontWeight: 700, color: (allPaid && !nothingToIssue) ? '#00E676' : '#FFD08A' }}>
+              {nothingToIssue
+                ? 'ALL ' + waivedCount + ' MEMBERS WAIVED \u2014 NO PAYMENT DUE HERE'
+                : allPaid
+                  ? (waivedCount > 0
+                      ? paidCount + ' PAID, ' + waivedCount + ' WAIVED'
+                      : 'ALL MEMBERS PAID')
+                  : (paidCount + ' of ' + nonDropped.length + ' members paid'
+                     + (waivedCount > 0 ? ', ' + waivedCount + ' waived' : ''))}
             </span>
             <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
               {peso(totalCollected)} <span style={{ color: 'var(--text-soft)', fontSize: 12 }}>/ {peso(billable.length * 300)}</span>
@@ -12682,7 +12699,7 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
             <div style={{
               height: '100%',
               width: (nonDropped.length > 0 ? (paidCount / nonDropped.length * 100) : 0) + '%',
-              background: allPaid ? 'linear-gradient(90deg, #00B248, #00E676)' : 'linear-gradient(90deg, #FF9F1A, #FFD08A)',
+              background: (allPaid && !nothingToIssue) ? 'linear-gradient(90deg, #00B248, #00E676)' : 'linear-gradient(90deg, #FF9F1A, #FFD08A)',
               transition: 'width 0.3s',
             }}></div>
           </div>
@@ -12703,6 +12720,21 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
           }}>
             ✓ Performer tickets generated. View in Tickets tab.
           </div>
+        ) : nothingToIssue ? (
+          <div style={{
+            padding: '14px 16px', borderRadius: 10,
+            background: 'rgba(255, 159, 26, 0.08)',
+            border: '1px solid rgba(255, 159, 26, 0.35)',
+          }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFD08A', marginBottom: 6 }}>
+              No tickets to issue on this entry
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              All {waivedCount} members are waived because they already pay on this
+              group's other category entry. Their tickets are issued there and will
+              cover both categories. Nothing was collected here, and nothing should be.
+            </div>
+          </div>
         ) : allPaid && nonDropped.length > 0 ? (
           <div style={{
             padding: 16, borderRadius: 12,
@@ -12711,7 +12743,9 @@ function PerformerManagementSection({ registration, onVerifyPayment, onDropMembe
             boxShadow: '0 0 28px rgba(199, 36, 255, 0.18)',
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-              ✓ All {nonDropped.length} members paid
+              ✓ {waivedCount > 0
+                   ? paidCount + ' paid, ' + waivedCount + ' waived \u2014 all settled'
+                   : 'All ' + nonDropped.length + ' members paid'}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.55 }}>
               Ready to issue performer tickets. Click below when you're ready
