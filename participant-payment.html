@@ -307,10 +307,22 @@ function App() {
       if (up.error) throw new Error('Receipt upload failed: ' + up.error.message);
 
       // 2. Insert registration_payments row
-      const memberIds = Object.keys(selectedMemberIds);
+      // Guard against a stale or tampered selection object. This filters
+      // against the member list fetched at lookup, so it catches anyone who
+      // was ALREADY settled when the page loaded. It does NOT catch someone
+      // waived in admin after load, since that array is not re-fetched.
+      // Closing that would need a re-read here, which was judged not worth
+      // adding a network call to the submit path on event week.
+      const settledIds = new Set(
+        members.filter((m) => m.payment_status === 'paid' || m.payment_status === 'waived_overlap')
+               .map((m) => m.id));
+      const memberIds = Object.keys(selectedMemberIds).filter((id) => !settledIds.has(id));
+      if (memberIds.length === 0) {
+        throw new Error('Those members are already settled. Refresh the page to see the latest status.');
+      }
       const ins = await supabase.from('registration_payments').insert({
         registration_id: registration.id,
-        amount: totalAmount,
+        amount: memberIds.length * PERFORMER_FEE,
         payment_method: 'gcash',
         gcash_reference: paymentRef.trim(),
         receipt_url: path,
@@ -326,7 +338,7 @@ function App() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedCount, paymentRef, receiptFile, registration, selectedMemberIds, totalAmount]);
+  }, [selectedCount, paymentRef, receiptFile, registration, selectedMemberIds, totalAmount, members]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -572,7 +584,7 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
         color: 'var(--text-muted)',
         lineHeight: 1.55,
       }}>
-        Tick the members you{'\u2019'}re paying for. Members already paid are shown with a checkmark and can{'\u2019'}t be selected again.
+        Tick the members you{'\u2019'}re paying for. Anyone marked <strong style={{ color: '#00E676' }}>PAID</strong> or <strong style={{ color: '#D88BFF' }}>FEE COVERED</strong> is already settled and cannot be selected. <strong style={{ color: '#D88BFF' }}>FEE COVERED</strong> means that member pays through your other category entry, so you only pay for the rest here.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
