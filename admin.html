@@ -888,6 +888,21 @@ function buildStarfieldSVG() {
 }
 
 // Render a ticket as HTML string (matches kreation_ticket_preview.html design)
+// Two writers populate group_category. Generation writes display-ready text
+// such as "K-Classics + Open Stage" for a dual ticket; the older
+// per-registration path writes the raw value "k-classics". Formatting must
+// therefore be idempotent: transform a raw value, pass a formatted one
+// through untouched. The previous inline transform mangled the dual string
+// into "K Classics + Open Stage" by stripping the hyphen.
+function formatTicketCategory(c) {
+  if (!c) return '\u2014';
+  const raw = { 'k-classics': 'K-Classics', 'open-stage': 'Open Stage' };
+  if (raw[c]) return raw[c];
+  // Already formatted if it contains a space or any capital past the first.
+  if (/\s/.test(c) || /[A-Z]/.test(c.slice(1))) return c;
+  return c.charAt(0).toUpperCase() + c.slice(1).replace(/-/g, ' ');
+}
+
 function renderTicketHTML(ticket, logoSrc) {
   const tierCode = ticket.tier_code || tierCodeFromName(ticket.ticket_type_name);
   const accent = tierAccentColor(tierCode);
@@ -914,7 +929,7 @@ function renderTicketHTML(ticket, logoSrc) {
     ? ('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 24px">' +
         '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">TIER</div><div style="font-family:Sora,sans-serif;font-size:18px;font-weight:800;color:' + accent + ';line-height:1">' + tierDisplay + '</div></div>' +
         '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">GROUP</div><div style="font-family:Sora,sans-serif;font-size:14px;font-weight:700;color:#08020F;line-height:1.2">' + (ticket.group_name || '—') + '</div></div>' +
-        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">CATEGORY</div><div style="font-family:Sora,sans-serif;font-size:13px;font-weight:700;color:#08020F;line-height:1.2">' + (ticket.group_category ? (ticket.group_category.charAt(0).toUpperCase() + ticket.group_category.slice(1).replace('-', ' ')) : '—') + '</div></div>' +
+        '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">CATEGORY</div><div style="font-family:Sora,sans-serif;font-size:13px;font-weight:700;color:#08020F;line-height:1.2">' + formatTicketCategory(ticket.group_category) + '</div></div>' +
       '</div>')
     : ('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 24px">' +
         '<div><div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:1.5px;color:#8C8C8C;font-weight:700;margin-bottom:4px">TIER</div><div style="font-family:Sora,sans-serif;font-size:18px;font-weight:800;color:' + accent + ';line-height:1">' + tierDisplay + '</div></div>' +
@@ -1986,6 +2001,147 @@ function Dashboard({ session, adminRecord }) {
     fetchTickets();
     setSelectedId(null);
   }, [orders, session, showToast, fetchOrders, fetchTickets]);
+
+  // ===== PARTICIPANT TICKET GENERATION =====
+  const [genBusy, setGenBusy] = useState(false);
+  const [genResult, setGenResult] = useState(null);
+
+  const runGeneration = async (plan) => {
+    setGenBusy(true); setGenResult(null);
+    try {
+      // Every existing code, cancelled included, since ticket_code is
+      // globally unique.
+      const codeRes = await supabase.from('tickets')
+        .select('ticket_code').like('ticket_code', 'KP-P-%');
+      if (codeRes.error) throw new Error('Could not read existing codes: ' + codeRes.error.message);
+      const allocate = makeParticipantCodeAllocator(
+        (codeRes.data || []).map((r) => r.ticket_code));
+
+      // 1. Cancel, scoped to the ids in the plan so nothing else is touched.
+      let cancelled = 0;
+      if (plan.toCancel.length > 0) {
+        const ids = plan.toCancel.map((t) => t.id);
+        const del = await supabase.from('tickets').update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: session.user.email,
+          cancellation_reason: 'Superseded by dual-category regeneration',
+        }).in('id', ids);
+        if (del.error) throw new Error('Cancel failed: ' + del.error.message);
+        // Clear the member links too, otherwise a cancelled ticket keeps
+        // claiming its member and the scanner reads a dead ticket.
+        const clr = await supabase.from('registration_members')
+          .update({ ticket_id: null }).in('ticket_id', ids);
+        if (clr.error) console.warn('Could not clear member links:', clr.error.message);
+        cancelled = ids.length;
+      }
+
+      // 2. Issue.
+      const rows = plan.toIssue.map((t) => ({
+        ticket_code: allocate(t.is_dual),
+        qr_token: generateQrToken(),
+        registration_id: t.registration_id,
+        registration_member_id: t.member_id,
+        secondary_registration_id: t.second_registration_id,
+        secondary_registration_member_id: t.second_member_id,
+        secondary_group_category: t.second_category,
+        attendee_name: t.member_name,
+        attendee_email: t.leader_email,
+        attendee_phone: t.leader_phone,
+        ticket_type_name: 'Participant',
+        tier_code: 'P',
+        section: 'Performer Area',
+        group_name: t.group_printed,
+        group_category: t.category_printed,
+        price: 300,
+        status: 'issued',
+        is_walk_in: false,
+        issued_by: session.user.email,
+      }));
+      const ins = await supabase.from('tickets').insert(rows).select('id, registration_member_id, secondary_registration_member_id');
+      if (ins.error) throw new Error('Issue failed: ' + ins.error.message);
+
+      // Link the ticket back onto its member row(s). This matters more than
+      // it looks:
+      //   * admin's hasTickets reads members.some(m => m.ticket_id), so
+      //     without it a ticketed group appears to have none.
+      //   * scan.html resolves a member to a ticket via
+      //     registration_members.ticket_id -> tickets.id, looked up against
+      //     ALL tickets rather than only that registration's. So setting
+      //     ticket_id on the WAIVED row too makes one scan mark the holder
+      //     present in BOTH groups, with no scanner change required.
+      const linkFailures = [];
+      for (const t of (ins.data || [])) {
+        const ids = [t.registration_member_id, t.secondary_registration_member_id]
+          .filter(Boolean);
+        for (const memberId of ids) {
+          const upd = await supabase.from('registration_members')
+            .update({ ticket_id: t.id }).eq('id', memberId);
+          if (upd.error) linkFailures.push(memberId);
+        }
+      }
+      if (linkFailures.length > 0) {
+        // Not fatal: the scanner falls back to a name match. But a dual
+        // performer would then show absent in their second group, so it
+        // must be surfaced rather than swallowed.
+        showToast(linkFailures.length + ' ticket link(s) failed. Dual performers may not '
+          + 'check in to both groups. Re-run generation.', 'warning');
+      }
+
+      // 3. Recompute status. Cancelling a ticket does NOT fire
+      // trg_recompute_registration_paid, which only fires on
+      // registration_members changes, so any registration that was held at
+      // 'paid' by now-cancelled tickets must be corrected by hand.
+      const touched = {};
+      plan.toIssue.forEach((t) => {
+        touched[t.registration_id] = true;
+        if (t.second_registration_id) touched[t.second_registration_id] = true;
+      });
+      plan.toCancel.forEach((t) => {
+        if (t.registration_id) touched[t.registration_id] = true;
+        if (t.secondary_registration_id) touched[t.secondary_registration_id] = true;
+      });
+      let statusUpdated = 0;
+      for (const regId of Object.keys(touched)) {
+        const mems = regMembers.filter(
+          (m) => m.registration_id === regId && m.payment_status !== 'dropped');
+        if (mems.length === 0) continue;
+        const noUnpaid = !mems.some((m) => m.payment_status === 'unpaid');
+        const somePaid = mems.some((m) => m.payment_status === 'paid');
+        const shouldBe = (noUnpaid && somePaid) ? 'paid' : 'confirmed';
+        const reg = registrations.filter((r) => r.id === regId)[0];
+        if (reg && reg.status !== shouldBe &&
+            (reg.status === 'paid' || reg.status === 'confirmed')) {
+          const upd = await supabase.from('registrations')
+            .update({ status: shouldBe }).eq('id', regId);
+          if (!upd.error) statusUpdated += 1;
+        }
+      }
+
+      await supabase.from('audit_log').insert({
+        actor_email: session.user.email,
+        action: 'participant_tickets_generated',
+        resource_type: 'batch',
+        details: {
+          issued: rows.length,
+          dual: plan.counts.dual,
+          cancelled: cancelled,
+          registrations: plan.counts.registrations,
+          status_updated: statusUpdated,
+        },
+      });
+
+      setGenResult({ cancelled, issued: rows.length, dual: plan.counts.dual, statusUpdated,
+                     linkFailures: linkFailures.length });
+      showToast('Issued ' + rows.length + ' participant tickets', 'success');
+      fetchTickets(); fetchRegistrations();
+    } catch (e) {
+      setGenResult({ error: e.message || String(e) });
+      showToast('Generation failed: ' + (e.message || 'unknown error'), 'warning');
+    } finally {
+      setGenBusy(false);
+    }
+  };
 
   // ===== ONGOING ISSUES =====
   const [issues, setIssues] = useState([]);
@@ -3851,6 +4007,10 @@ function Dashboard({ session, adminRecord }) {
             {apReservations.filter((r) => r.status === 'awaiting_verification').length}
           </span>
         </button>
+        <button onClick={() => setSection('gentickets')} style={sectionBtnStyle(section === 'gentickets')}>
+          <Icon name="ticket" size={14} />
+          <span>Generate Tickets</span>
+        </button>
         <button onClick={() => setSection('issues')} style={sectionBtnStyle(section === 'issues')}>
           <Icon name="alert" size={14} />
           <span>Ongoing Issues</span>
@@ -4111,6 +4271,16 @@ function Dashboard({ session, adminRecord }) {
         adminEmail={session && session.user ? session.user.email : null}
         onConfirm={confirmAfterParty}
         onReject={rejectAfterParty}
+      />
+      ) : section === 'gentickets' ? (
+      <TicketGenerationPanel
+        registrations={registrations}
+        members={regMembers}
+        tickets={tickets}
+        onGenerate={runGeneration}
+        busy={genBusy}
+        lastResult={genResult}
+        onRefresh={() => { fetchTickets(); fetchRegistrations(); }}
       />
       ) : section === 'issues' ? (
       <OngoingIssuesView
@@ -11308,6 +11478,388 @@ const DISPUTE_TYPE_META = {
     icon: 'alert',
   },
 };
+
+// ============================================================
+// PARTICIPANT TICKET GENERATION
+//
+// One button. Computes a plan, shows it, and only writes on confirmation.
+//
+// THE RULES, settled with Kyla:
+//   * eligible = status paid or confirmed, no unpaid members, AND at least
+//     one genuinely paid member. The last clause matters: an entry where
+//     everyone is waived has nobody outstanding and has collected nothing,
+//     and issues no tickets.
+//   * one ticket per PERSON, not per member row. Someone in two categories
+//     gets ONE ticket covering both.
+//   * the ticket lives on the entry where they are NOT waived, which is
+//     where the fee sits.
+//   * dual codes take a -D suffix. Category reads "K-Classics + Open Stage",
+//     K-Classics first. Group name joins with " + " only when the two
+//     groups differ.
+//   * existing tickets are cancelled ONLY on registrations being
+//     regenerated. Anything else is left alone.
+//   * cancelling does not fire trg_recompute_registration_paid, which only
+//     fires on registration_members changes, so status is recomputed
+//     explicitly afterwards.
+// ============================================================
+
+const CAT_LABEL = { 'k-classics': 'K-Classics', 'open-stage': 'Open Stage' };
+const catLabel = (c) => CAT_LABEL[c] || c || '';
+const personKey = (n) => String(n || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+// Pure. Given the current state, decide exactly what to write.
+function computeGenerationPlan(registrations, members, tickets) {
+  const LIVE = ['pending', 'confirmed', 'paid'];
+  const liveRegs = registrations.filter((r) => LIVE.indexOf(r.status) !== -1);
+  const regById = {};
+  liveRegs.forEach((r) => { regById[r.id] = r; });
+
+  const liveMembers = members.filter(
+    (m) => m.payment_status !== 'dropped' && regById[m.registration_id]);
+
+  // Eligibility, per the rule above.
+  const byReg = {};
+  liveMembers.forEach((m) => {
+    (byReg[m.registration_id] = byReg[m.registration_id] || []).push(m);
+  });
+  const eligible = {};
+  Object.keys(byReg).forEach((regId) => {
+    const ms = byReg[regId];
+    const reg = regById[regId];
+    const statusOk = reg.status === 'paid' || reg.status === 'confirmed';
+    const noUnpaid = !ms.some((m) => m.payment_status === 'unpaid');
+    const somePaid = ms.some((m) => m.payment_status === 'paid');
+    if (statusOk && noUnpaid && somePaid) eligible[regId] = true;
+  });
+
+  // Group member rows by person so a dual performer resolves to one ticket.
+  const people = {};
+  liveMembers.forEach((m) => {
+    const k = personKey(m.member_name);
+    (people[k] = people[k] || []).push(m);
+  });
+
+  const toIssue = [];
+  const blocked = [];
+
+  Object.keys(people).forEach((k) => {
+    const rows = people[k];
+    const paidRows = rows.filter((m) => m.payment_status === 'paid');
+    const waivedRows = rows.filter((m) => m.payment_status === 'waived_overlap');
+
+    // The holder is their paid row inside an eligible registration.
+    const holder = paidRows.filter((m) => eligible[m.registration_id])[0];
+
+    if (!holder) {
+      // Not an error. Report why, so nobody is silently absent.
+      const anyRow = rows[0];
+      const reason = paidRows.length === 0 && waivedRows.length > 0
+        ? 'waived, but has not paid on the fee-keeping entry'
+        : paidRows.length === 0
+          ? 'has not paid'
+          : 'paid, but that registration is not eligible yet';
+      blocked.push({
+        person: anyRow.member_name,
+        reason,
+        entries: rows.map((m) => {
+          const r = regById[m.registration_id];
+          return r.group_name + ' (' + r.category + ') ' + m.payment_status;
+        }).join(', '),
+      });
+      return;
+    }
+
+    const holderReg = regById[holder.registration_id];
+    // Their waived row, if any, is the second entry the ticket covers.
+    const second = waivedRows.filter((m) => m.registration_id !== holder.registration_id)[0];
+    const secondReg = second ? regById[second.registration_id] : null;
+
+    const isDual = !!secondReg;
+    let categoryPrinted;
+    if (isDual) {
+      // K-Classics first, since it performs first.
+      const cats = [holderReg.category, secondReg.category];
+      const ordered = cats.indexOf('k-classics') === 0
+        ? cats
+        : [cats[1], cats[0]];
+      categoryPrinted = ordered.map(catLabel).join(' + ');
+    } else {
+      categoryPrinted = catLabel(holderReg.category);
+    }
+
+    const groupPrinted = !isDual || holderReg.group_name === secondReg.group_name
+      ? holderReg.group_name
+      : holderReg.group_name + ' + ' + secondReg.group_name;
+
+    toIssue.push({
+      member_id: holder.id,
+      member_name: holder.member_name,
+      registration_id: holderReg.id,
+      registration_code: holderReg.registration_code,
+      leader_email: holderReg.leader_email || null,
+      leader_phone: holderReg.leader_phone || null,
+      group_printed: groupPrinted,
+      category_printed: categoryPrinted,
+      is_dual: isDual,
+      second_registration_id: secondReg ? secondReg.id : null,
+      second_registration_code: secondReg ? secondReg.registration_code : null,
+      second_member_id: second ? second.id : null,
+      second_category: secondReg ? secondReg.category : null,
+      second_leader_email: secondReg && secondReg.group_name !== holderReg.group_name
+        ? (secondReg.leader_email || null) : null,
+    });
+  });
+
+  // Cancel only on registrations we are regenerating, primary or secondary.
+  const touched = {};
+  toIssue.forEach((t) => {
+    touched[t.registration_id] = true;
+    if (t.second_registration_id) touched[t.second_registration_id] = true;
+  });
+  const toCancel = tickets.filter(
+    (t) => t.tier_code === 'P' && t.status !== 'cancelled' &&
+           (touched[t.registration_id] ||
+            (t.secondary_registration_id && touched[t.secondary_registration_id])));
+
+  // Live participant tickets on registrations we are NOT regenerating.
+  // These survive untouched, and anyone holding one keeps it.
+  const untouched = tickets.filter(
+    (t) => t.tier_code === 'P' && t.status !== 'cancelled' && !touched[t.registration_id]);
+
+  const skippedRegs = Object.keys(byReg)
+    .filter((regId) => !eligible[regId])
+    .map((regId) => {
+      const reg = regById[regId];
+      const ms = byReg[regId];
+      const unpaid = ms.filter((m) => m.payment_status === 'unpaid').length;
+      const paid = ms.filter((m) => m.payment_status === 'paid').length;
+      const waived = ms.filter((m) => m.payment_status === 'waived_overlap').length;
+      return {
+        group_name: reg.group_name, category: reg.category,
+        registration_code: reg.registration_code, status: reg.status,
+        unpaid, paid, waived,
+        reason: reg.status === 'pending' ? 'still pending'
+              : unpaid > 0 ? unpaid + ' member(s) unpaid'
+              : paid === 0 ? 'every member waived, nothing to issue here'
+              : 'not eligible',
+      };
+    })
+    .sort((a, b) => (a.group_name || '').localeCompare(b.group_name || ''));
+
+  return {
+    toIssue,
+    toCancel,
+    untouched,
+    blocked: blocked.sort((a, b) => (a.person || '').localeCompare(b.person || '')),
+    skippedRegs,
+    counts: {
+      tickets: toIssue.length,
+      dual: toIssue.filter((t) => t.is_dual).length,
+      single: toIssue.filter((t) => !t.is_dual).length,
+      cancel: toCancel.length,
+      untouched: untouched.length,
+      registrations: Object.keys(eligible).length,
+      blocked: blocked.length,
+      skipped: skippedRegs.length,
+      twoLeaders: toIssue.filter((t) => t.second_leader_email).length,
+    },
+  };
+}
+
+// Allocate codes that cannot collide with anything already in the table,
+// including cancelled rows, since ticket_code is globally unique.
+function makeParticipantCodeAllocator(existingCodes) {
+  const taken = new Set(existingCodes || []);
+  let next = 1;
+  existingCodes.forEach((c) => {
+    const n = parseInt(String(c).replace(/^KP-P-/, '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(n) && n >= next) next = n + 1;
+  });
+  return function allocate(isDual) {
+    for (;;) {
+      const base = 'KP-P-' + String(next).padStart(5, '0');
+      next += 1;
+      const code = isDual ? base + '-D' : base;
+      if (!taken.has(code) && !taken.has(base)) {
+        taken.add(code);
+        taken.add(base);
+        return code;
+      }
+    }
+  };
+}
+
+function TicketGenerationPanel({ registrations, members, tickets, allTicketCodes,
+                                 onGenerate, busy, lastResult, onRefresh }) {
+  const [confirmText, setConfirmText] = useState('');
+  const [showList, setShowList] = useState(false);
+
+  const plan = useMemo(
+    () => computeGenerationPlan(registrations || [], members || [], tickets || []),
+    [registrations, members, tickets]);
+
+  const c = plan.counts;
+  const ready = confirmText === 'GENERATE' && c.tickets > 0 && !busy;
+
+  const Stat = ({ label, value, color }) => (
+    <div style={{ padding: '11px 14px', borderRadius: 10, minWidth: 120,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-soft)', fontWeight: 700, marginBottom: 3 }}>{label}</div>
+      <div className="font-display" style={{ fontSize: 19, fontWeight: 800, color: color || 'var(--text)' }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '20px 32px 40px' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <Stat label="TICKETS TO ISSUE" value={c.tickets} color="#00E676" />
+        <Stat label="OF WHICH DUAL" value={c.dual} color="#C724FF" />
+        <Stat label="GROUPS READY" value={c.registrations} />
+        <Stat label="TO CANCEL" value={c.cancel} color={c.cancel ? '#FFB300' : undefined} />
+        <Stat label="PEOPLE WAITING" value={c.blocked} color={c.blocked ? '#FFB300' : undefined} />
+        <Stat label="GROUPS NOT READY" value={c.skipped} color={c.skipped ? '#FFB300' : undefined} />
+      </div>
+
+      {c.untouched > 0 && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 14,
+                      background: 'rgba(0,229,255,0.06)', border: '1px solid rgba(0,229,255,0.28)' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            {c.untouched} existing participant ticket{c.untouched === 1 ? '' : 's'} on groups not being
+            regenerated will be left untouched. Nobody loses a ticket they already hold.
+          </div>
+        </div>
+      )}
+
+      {c.blocked > 0 && (
+        <div style={{ padding: '13px 16px', borderRadius: 12, marginBottom: 14,
+                      background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#FFD37A', marginBottom: 6 }}>
+            {c.blocked} {c.blocked === 1 ? 'person' : 'people'} will not get a ticket yet
+          </div>
+          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+            {plan.blocked.slice(0, 60).map((b, i) => (
+              <div key={i} style={{ fontSize: 12, color: '#FFD37A', lineHeight: 1.6 }}>
+                {b.person} &mdash; {b.reason}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#FFD37A', opacity: 0.85, marginTop: 6 }}>
+            Almost always because their group has not finished paying. Chase the group, then run this again.
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                    borderRadius: 14, padding: '16px 18px', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div className="font-display" style={{ fontSize: 13.5, fontWeight: 800 }}>
+            What would be issued
+          </div>
+          <button onClick={() => setShowList(!showList)}
+            style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, fontSize: 12,
+                     cursor: 'pointer', fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)',
+                     border: '1px solid var(--border-strong)', color: 'var(--text-muted)' }}>
+            {showList ? 'Hide list' : 'Show all ' + c.tickets}
+          </button>
+          <button onClick={onRefresh} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12,
+                     cursor: 'pointer', fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)',
+                     border: '1px solid var(--border-strong)', color: 'var(--text-muted)' }}>
+            Refresh
+          </button>
+        </div>
+        {showList && (
+          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {plan.toIssue.map((t, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 12,
+                                    borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <span style={{ minWidth: 170, fontWeight: 600 }}>{t.member_name}</span>
+                <span style={{ minWidth: 150, color: 'var(--text-muted)' }}>{t.group_printed}</span>
+                <span style={{ minWidth: 160, color: t.is_dual ? '#D98BFF' : 'var(--text-soft)' }}>
+                  {t.category_printed}
+                </span>
+                <span className="font-mono" style={{ color: 'var(--text-soft)' }}>{t.registration_code}</span>
+                {t.second_leader_email && (
+                  <span style={{ color: '#FFD37A' }}>2nd leader: {t.second_leader_email}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {!showList && (
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            {c.single} single-category and {c.dual} dual-category tickets across {c.registrations} groups.
+            {c.twoLeaders > 0 && ' ' + c.twoLeaders + ' dual ticket' + (c.twoLeaders === 1 ? '' : 's') +
+              ' span two groups, so both leaders need a copy.'}
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: 'rgba(255,27,107,0.06)', border: '1px solid rgba(255,27,107,0.35)',
+                    borderRadius: 14, padding: '16px 18px', marginBottom: 14 }}>
+        <div className="font-display" style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--brand)', marginBottom: 5 }}>
+          Generate
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
+          Cancels {c.cancel} existing ticket{c.cancel === 1 ? '' : 's'} on the groups being regenerated,
+          then issues {c.tickets}. Dual performers get one ticket covering both categories.
+          Run this again later for groups that pay after today.
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-soft)' }}>type GENERATE to enable</span>
+          <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="GENERATE"
+            className="font-mono" style={{ width: 120, padding: '9px 10px', borderRadius: 9, fontSize: 13 }} />
+          <button disabled={!ready}
+            onClick={() => { onGenerate(plan); setConfirmText(''); }}
+            style={{ padding: '11px 20px', borderRadius: 10, border: 'none', fontFamily: 'inherit',
+                     fontSize: 13.5, fontWeight: 800, color: '#fff',
+                     cursor: ready ? 'pointer' : 'not-allowed',
+                     background: ready ? 'linear-gradient(90deg,#FF1B6B,#C724FF)' : 'rgba(255,255,255,0.06)' }}>
+            {busy ? 'Working...' : 'Issue ' + c.tickets + ' tickets'}
+          </button>
+        </div>
+      </div>
+
+      {lastResult && (
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                      borderRadius: 14, padding: '16px 18px', marginBottom: 14 }}>
+          <div className="font-display" style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Last run</div>
+          {lastResult.error ? (
+            <div style={{ fontSize: 13, color: '#FF6B85', lineHeight: 1.6 }}>{lastResult.error}</div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+              Cancelled {lastResult.cancelled}, issued {lastResult.issued}
+              {lastResult.dual ? ' (' + lastResult.dual + ' dual)' : ''}.
+              {lastResult.statusUpdated ? ' Recomputed status on ' + lastResult.statusUpdated + ' registration(s).' : ''}
+              {lastResult.linkFailures ? ' WARNING: ' + lastResult.linkFailures + ' member link(s) failed.' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {c.skipped > 0 && (
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                      borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)' }}>
+            <div className="font-display" style={{ fontSize: 13, fontWeight: 800 }}>
+              Groups not ready ({c.skipped})
+            </div>
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {plan.skippedRegs.map((s, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, padding: '7px 18px', fontSize: 12,
+                                    borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <span style={{ minWidth: 150, fontWeight: 600 }}>{s.group_name}</span>
+                <span style={{ minWidth: 90, color: 'var(--text-soft)' }}>{s.category}</span>
+                <span className="font-mono" style={{ minWidth: 90, color: 'var(--text-soft)' }}>{s.registration_code}</span>
+                <span style={{ color: '#FFD37A' }}>{s.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function OngoingIssuesView({ issues, loading, onRefresh, onResolve, onReopen, onDelete, onAdd }) {
   const [filter, setFilter] = useState('open');
