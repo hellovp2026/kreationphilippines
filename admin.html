@@ -11522,14 +11522,46 @@ function computeGenerationPlan(registrations, members, tickets) {
   liveMembers.forEach((m) => {
     (byReg[m.registration_id] = byReg[m.registration_id] || []).push(m);
   });
+  // Where each person's fee actually sits: their non-waived row.
+  const keeperByPerson = {};
+  liveMembers.forEach((m) => {
+    if (m.payment_status !== 'waived_overlap') {
+      keeperByPerson[personKey(m.member_name)] = m;
+    }
+  });
+
   const eligible = {};
+  const blockedByWaiver = {};
   Object.keys(byReg).forEach((regId) => {
     const ms = byReg[regId];
     const reg = regById[regId];
     const statusOk = reg.status === 'paid' || reg.status === 'confirmed';
     const noUnpaid = !ms.some((m) => m.payment_status === 'unpaid');
     const somePaid = ms.some((m) => m.payment_status === 'paid');
-    if (statusOk && noUnpaid && somePaid) eligible[regId] = true;
+
+    // A waived member is only settled once the entry holding their fee has
+    // actually paid for them. Without this, a group that pays four of five
+    // members becomes eligible and receives FOUR tickets for a FIVE-person
+    // team, with the fifth silently stranded on an unpaid sibling entry.
+    // Better to hold the whole entry and say why.
+    const waiverProblems = [];
+    ms.forEach((m) => {
+      if (m.payment_status !== 'waived_overlap') return;
+      const keeper = keeperByPerson[personKey(m.member_name)];
+      if (!keeper) {
+        waiverProblems.push(m.member_name + ' has no entry holding their fee');
+      } else if (keeper.payment_status !== 'paid') {
+        const kr = regById[keeper.registration_id];
+        waiverProblems.push(m.member_name + "'s fee is unpaid on the "
+          + (kr ? catLabel(kr.category) : 'other') + ' entry');
+      }
+    });
+
+    if (statusOk && noUnpaid && somePaid && waiverProblems.length === 0) {
+      eligible[regId] = true;
+    } else if (statusOk && noUnpaid && somePaid && waiverProblems.length > 0) {
+      blockedByWaiver[regId] = waiverProblems;
+    }
   });
 
   // Group member rows by person so a dual performer resolves to one ticket.
@@ -11638,7 +11670,9 @@ function computeGenerationPlan(registrations, members, tickets) {
         group_name: reg.group_name, category: reg.category,
         registration_code: reg.registration_code, status: reg.status,
         unpaid, paid, waived,
-        reason: reg.status === 'pending' ? 'still pending'
+        reason: blockedByWaiver[regId]
+                ? 'waiting on a sibling entry: ' + blockedByWaiver[regId].join('; ')
+              : reg.status === 'pending' ? 'still pending'
               : unpaid > 0 ? unpaid + ' member(s) unpaid'
               : paid === 0 ? 'every member waived, nothing to issue here'
               : 'not eligible',
