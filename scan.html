@@ -174,6 +174,19 @@ const beep = (freq, duration) => {
 // Tier helpers
 const TIER_LABEL = { V: 'VIP', R: 'Regular', P: 'Participant' };
 const tierLabel = (code) => TIER_LABEL[code] || code || '\u2014';
+// Ticket group_category holds either a raw value written by the older
+// per-registration generator ('k-classics') or display-ready text written by
+// the dual-aware generator ('K-Classics + Open Stage'). Formatting must be
+// idempotent: transform a raw value, pass a formatted one through. Without
+// this the scanner shows raw database values to door volunteers.
+// Kept identical to formatTicketCategory in admin.html.
+const formatTicketCategory = (c) => {
+  if (!c) return '';
+  const raw = { 'k-classics': 'K-Classics', 'open-stage': 'Open Stage' };
+  if (raw[c]) return raw[c];
+  if (/\s/.test(c) || /[A-Z]/.test(c.slice(1))) return c;
+  return c.charAt(0).toUpperCase() + c.slice(1).replace(/-/g, ' ');
+};
 
 // ============================================================
 // MAIN APP
@@ -885,6 +898,23 @@ function ScanResultPanel({ result, onDismiss, onOverride }) {
           <div className="font-mono" style={{ fontSize: 12, opacity: 0.9 }}>
             {tierLabel(ticket.tier_code)}{ticket.seat_label ? ' \u00b7 Seat ' + ticket.seat_label : ''}
           </div>
+          {/* Performers: show which group and category. Previously the panel
+              showed only name, tier and code, so a volunteer learned nothing
+              about which group anyone belonged to. For a dual performer the
+              category reads "K-Classics + Open Stage" and one scan admits
+              them to both, which the volunteer needs to see rather than
+              infer. */}
+          {ticket.group_name && (
+            <div style={{ fontSize: 14, fontWeight: 700, marginTop: 6 }}>
+              {ticket.group_name}
+            </div>
+          )}
+          {ticket.group_category && (
+            <div style={{ fontSize: 12.5, opacity: 0.95, marginTop: 2 }}>
+              {formatTicketCategory(ticket.group_category)}
+              {ticket.secondary_registration_id ? ' \u00b7 admitted to both' : ''}
+            </div>
+          )}
           <div className="font-mono" style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>
             {ticket.ticket_code}
           </div>
