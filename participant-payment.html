@@ -584,13 +584,19 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
         color: 'var(--text-muted)',
         lineHeight: 1.55,
       }}>
-        Tick the members you{'\u2019'}re paying for. Anyone marked <strong style={{ color: '#00E676' }}>PAID</strong> or <strong style={{ color: '#D88BFF' }}>FEE COVERED</strong> is already settled and cannot be selected. <strong style={{ color: '#D88BFF' }}>FEE COVERED</strong> means that member pays through your other category entry, so you only pay for the rest here.
+        Tick the members you{'\u2019'}re paying for. Anyone marked <strong style={{ color: '#00E676' }}>PAID</strong> has already paid and cannot be selected. Anyone marked <strong style={{ color: '#D88BFF' }}>MUST PAY IN {'\u2026'}</strong> is in both categories, so their {'\u20b1'}300 is due on your other entry rather than here {'\u2014'} <strong style={{ color: '#D88BFF' }}>they still need paying for, just not on this page</strong>.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
         {members.map((m) => {
           const isPaid = m.payment_status === 'paid';
           const isWaived = m.payment_status === 'waived_overlap';
+          // There are only two categories, so the entry that must pay for a
+          // waived member is always the other one. "FEE COVERED" read as
+          // "already paid", which is wrong: the fee is owed on the other
+          // entry and may not have been paid yet.
+          const otherCat = (registration && registration.category === 'k-classics')
+            ? 'OPEN STAGE' : 'K-CLASSICS';
           const isSettled = isPaid || isWaived;
           const isSelected = !!selectedMemberIds[m.id];
           return (
@@ -636,7 +642,7 @@ function SelectStep({ registration, members, selectedMemberIds, onToggleMember, 
                   color: '#D88BFF',
                   whiteSpace: 'nowrap',
                 }} title="Fee already covered via this member's other category group">
-                  FEE COVERED
+                  MUST PAY IN {otherCat}
                 </span>
               ) : (
                 <span className="font-mono" style={{
