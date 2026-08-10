@@ -1349,7 +1349,7 @@ function HomeCategories({ onOpenRegister }) {
           fontFamily: "'Sora', sans-serif", fontSize: 11.5, letterSpacing: 1.5,
           color: 'var(--text-muted)', fontWeight: 600,
         }}>
-          REGISTRATION CLOSES <span style={{ color: 'var(--brand)' }}>JUL 27</span> · PARTICIPANT PAYMENT DUE <span style={{ color: 'var(--brand)' }}>AUG 15</span>
+          REGISTRATION <span style={{ color: 'var(--brand)' }}>CLOSED</span> · PARTICIPANT PAYMENT DUE <span style={{ color: 'var(--brand)' }}>AUG 15</span>
         </div>
       </div>
     </section>
@@ -3729,7 +3729,69 @@ function RegistrationPolicy() {
   );
 }
 
+// Registration is CLOSED. Every remaining change is made by hand in admin so
+// that nothing shifts under the ticket generation planned for 15 August. The
+// form is replaced rather than removed, so existing links still land somewhere
+// that explains itself and gives people a way to reach Kyla.
+const REGISTRATION_CLOSED = true;
+
+function RegistrationClosed() {
+  return (
+    <div style={{
+      maxWidth: 620, margin: '0 auto', padding: '38px 28px', textAlign: 'center',
+      background: 'rgba(255,179,0,0.06)', border: '1px dashed rgba(255,179,0,0.42)',
+      borderRadius: 20,
+    }}>
+      <div className="font-mono" style={{
+        fontSize: 11, letterSpacing: 3, color: '#FFD37A', fontWeight: 700, marginBottom: 14,
+      }}>
+        REGISTRATION CLOSED
+      </div>
+      <div className="font-display" style={{
+        fontSize: 'clamp(22px, 3.4vw, 30px)', fontWeight: 800, lineHeight: 1.2, marginBottom: 16,
+      }}>
+        Entries are now closed.
+      </div>
+      <p style={{ fontSize: 15.5, lineHeight: 1.75, color: 'var(--text-muted)', margin: '0 0 22px' }}>
+        Thank you to everyone who registered. We are finalising the line-up and
+        preparing tickets.
+      </p>
+      <p style={{ fontSize: 15.5, lineHeight: 1.75, color: '#fff', margin: '0 0 26px', fontWeight: 600 }}>
+        Please send us a message if you wish to modify your registered entry.
+      </p>
+      <div style={{
+        display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center',
+      }}>
+        <a href="https://www.facebook.com/kreationph" target="_blank" rel="noopener"
+          style={{
+            padding: '13px 26px', borderRadius: 12, textDecoration: 'none',
+            fontFamily: "'Sora', sans-serif", fontSize: 14, fontWeight: 800, color: '#fff',
+            background: 'linear-gradient(90deg,#FF1B6B,#C724FF)',
+          }}>
+          Message us on Facebook
+        </a>
+        <a href="mailto:kreationph@gmail.com"
+          style={{
+            padding: '13px 26px', borderRadius: 12, textDecoration: 'none',
+            fontFamily: "'Sora', sans-serif", fontSize: 14, fontWeight: 800,
+            color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)',
+            border: '1px solid var(--border-strong)',
+          }}>
+          kreationph@gmail.com
+        </a>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 26, lineHeight: 1.7 }}>
+        Already registered? Your payment page is still open.<br />
+        <a href="/participant-payment.html" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+          Pay for your members here
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function RegistrationForm({ event }) {
+  if (REGISTRATION_CLOSED) return <RegistrationClosed />;
   const [form, setForm] = React.useState({
     category: '',
     group_name: '',
