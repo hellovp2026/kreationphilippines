@@ -6502,13 +6502,37 @@ function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, 
     });
   };
 
+  const [tierAvail, setTierAvail] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await supabase.rpc('tier_availability');
+        if (!r.error && Array.isArray(r.data)) {
+          const byId = {};
+          r.data.forEach((x) => { byId[x.ticket_type_id] = x; });
+          setTierAvail(byId);
+        }
+      } catch (e) { console.warn('[tier availability]', e); }
+    })();
+  }, []);
   const remaining = (tt) => {
+    // The tier_availability RPC is authoritative for BOTH tier kinds. It
+    // returns aggregate counts only, no seat-level detail, so it can report a
+    // tier sold out without revealing which seats are taken — the privacy
+    // intent takenSeatIds was protecting.
+    //
+    // Without it, two things went wrong. takenSeatIds is deliberately empty, so
+    // an assigned-seat tier computed total minus zero and VIP stayed buyable at
+    // 140/140. And free seating returned capacity, which never subtracts what
+    // has been sold, so Regular would report 300 available after 300 were sold.
+    const av = tierAvail[tt.id];
+    if (av) return av.remaining;
     if (tt.has_assigned_seats) {
       const total = seats.filter(s => s.ticket_type_id === tt.id).length;
       const taken = seats.filter(s => s.ticket_type_id === tt.id && takenSeatIds.has(s.id)).length;
       return total - taken;
     }
-    return tt.capacity; // free-seating or unlimited; capacity is best estimate
+    return tt.capacity;
   };
 
   return (
@@ -6542,6 +6566,22 @@ function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, 
                         fontFamily: 'Sora'
                       }}>DANCER</span>
                     )}
+                    {!tt.has_assigned_seats && (
+                      <span style={{
+                        fontSize: 9, padding: '2px 8px', borderRadius: 999,
+                        background: 'rgba(199, 36, 255, 0.12)', color: 'var(--brand-2)',
+                        letterSpacing: 1, fontWeight: 700, border: '1px solid rgba(199, 36, 255, 0.3)',
+                        fontFamily: 'Sora'
+                      }}>UPPER BOX</span>
+                    )}
+                    {soldOut && (
+                      <span style={{
+                        fontSize: 9, padding: '2px 8px', borderRadius: 999,
+                        background: 'rgba(255, 23, 68, 0.15)', color: '#FF6B85',
+                        letterSpacing: 1, fontWeight: 700, border: '1px solid rgba(255, 23, 68, 0.4)',
+                        fontFamily: 'Sora'
+                      }}>SOLD OUT</span>
+                    )}
                     {tt.has_assigned_seats && (
                       <span style={{
                         fontSize: 9, padding: '2px 8px', borderRadius: 999,
@@ -6557,6 +6597,31 @@ function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, 
                   <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
                     {peso(tt.price)}{tt.category === 'dancer' ? <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-soft)' }}> / member</span> : ''}
                   </div>
+                  {soldOut && tt.has_assigned_seats && (
+                    <div style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5, color: '#FF6B85' }}>
+                      Every VIP seat is taken.
+                      <span style={{ color: 'var(--text-soft)' }}>
+                        {' '}Regular below still has room, including a limited number with seats.
+                      </span>
+                    </div>
+                  )}
+                  {!tt.has_assigned_seats && tierAvail[tt.id] && (
+                    <div style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
+                      <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                        {tierAvail[tt.id].seated_left > 0
+                          ? tierAvail[tt.id].seated_left + ' seats left'
+                          : 'Standing only'}
+                      </span>
+                      <span style={{ color: 'var(--text-soft)' }}>
+                        {tierAvail[tt.id].seated_left > 0
+                          ? ' \u2014 the first 50 tickets include a seat, then standing'
+                          : ' \u2014 all 50 seats are taken'}
+                      </span>
+                      <div style={{ color: 'var(--text-soft)', marginTop: 2 }}>
+                        At the door: {'\u20b1'}250, with a seat only if any of the 50 remain.
+                      </div>
+                    </div>
+                  )}
                   {rem != null && rem > 0 && rem <= 30 && (
                     <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 6, fontWeight: 600 }}>
                       Only {rem} left
