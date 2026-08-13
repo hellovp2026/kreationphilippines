@@ -12398,7 +12398,7 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
         <div style={{ fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.55, marginBottom: 12 }}>
           Resolves recipients and checks every PDF exists. Sends nothing, writes nothing, changes nothing. Safe to run any number of times.
         </div>
-        <button disabled={busy} style={btn()} onClick={() => call({ mode: 'dry_run', limit: 50 }, 'Dry run')}>
+        <button disabled={busy} style={btn()} onClick={() => call({ mode: 'dry_run', limit: 20, tier: scope }, 'Dry run')}>
           Run dry run
         </button>
       </div>
@@ -12413,11 +12413,11 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
           <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="you@email.com"
             style={{ padding: '9px 12px', borderRadius: 9, fontSize: 13, minWidth: 220 }} />
           <button disabled={busy || !testEmail.trim()} style={btn()}
-            onClick={() => call({ mode: 'test', limit: 1, test_email: testEmail.trim(), kind: 'order' }, 'Test - 1 audience order')}>
+            onClick={() => call({ mode: 'test', limit: 1, test_email: testEmail.trim(), kind: 'order', tier: scope === 'P' ? 'all' : scope }, 'Test - 1 audience order')}>
             Test 1 audience ticket
           </button>
           <button disabled={busy || !testEmail.trim()} style={btn()}
-            onClick={() => call({ mode: 'test', limit: 1, test_email: testEmail.trim(), kind: 'registration' }, 'Test - 1 group')}>
+            onClick={() => call({ mode: 'test', limit: 1, test_email: testEmail.trim(), kind: 'registration', tier: 'P' }, 'Test - 1 group')}>
             Test 1 group ticket
           </button>
         </div>
@@ -12444,7 +12444,7 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
                 ? 'linear-gradient(90deg, #FF1B6B, #C724FF)' : 'rgba(255,255,255,0.05)',
               border: 'none', color: '#fff',
             })}
-            onClick={() => call({ mode: 'send', limit: Math.max(1, Number(batchLimit) || 1) }, 'REAL SEND')}>
+            onClick={() => call({ mode: 'send', limit: Math.max(1, Number(batchLimit) || 1), tier: scope }, 'REAL SEND')}>
             Send batch of {Math.max(1, Number(batchLimit) || 1)}
           </button>
         </div>
