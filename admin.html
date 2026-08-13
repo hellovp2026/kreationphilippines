@@ -1196,7 +1196,29 @@ async function generateTicketsForOrder(order, currentUserEmail) {
     return batchers[key];
   };
 
+  // The first 50 Regular tickets include a seat; everyone after stands, at the
+  // same price. Decided at ISSUE time and stamped on the ticket, so a ticket
+  // someone is holding can never change meaning. Counted from tickets that
+  // exist, which makes the order chronological by verification.
+  //
+  // Note the buyer page counts LIVE ORDERS instead, including unverified ones,
+  // so it reports fewer seats remaining than this will actually grant. That
+  // asymmetry is deliberate: the page under-promises rather than over-promises.
+  const REGULAR_SEATED_CAP = 50;
+  let regularIssued = 0;
+  {
+    const rc = await supabase.from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('tier_code', 'R')
+      .neq('status', 'cancelled');
+    if (rc.error) {
+      throw new Error('Could not count Regular tickets: ' + rc.error.message);
+    }
+    regularIssued = rc.count || 0;
+  }
+
   const newTickets = [];
+  let regularInThisOrder = 0;
   for (let i = 0; i < attendees.length; i++) {
     const att = attendees[i];
     const typeName = (att.ticket_types && att.ticket_types.name) || order.ticket_type_name || 'Regular';
@@ -1227,13 +1249,17 @@ async function generateTicketsForOrder(order, currentUserEmail) {
       attendee_phone: order.buyer_phone || null,
       ticket_type_name: typeName,
       tier_code: tierCode,
-      section: sectionFromTier(tierCode),
+      section: tierCode === 'R'
+        ? (regularIssued + regularInThisOrder < REGULAR_SEATED_CAP
+            ? 'Upper Box Seated' : 'Upper Box Standing')
+        : sectionFromTier(tierCode),
       seat_label: seatLabel,
       price: typePrice,
       status: 'issued',
       is_walk_in: !!order.is_walk_in,
       issued_by: currentUserEmail || null,
     });
+    if (tierCode === 'R') regularInThisOrder += 1;
   }
 
   const { data: inserted, error } = await supabase
@@ -10662,6 +10688,20 @@ function TicketPdfPrepPanel({ orders, registrations, tickets, showToast, session
   const allTargets = targets.orderTargets.concat(targets.regTargets);
   const allMissing = missingOrders.concat(missingRegs);
 
+  // Tier-scoped lists so PDFs can be built for one audience at a time. A PDF is
+  // built per ORDER and contains every ticket in it, so an order belongs to one
+  // tier only: if it ever held both, 'V' wins and the buyer gets their whole set
+  // once rather than being prepared twice.
+  const tierOfTarget = (t) => {
+    if (t.kind === 'registration') return 'P';
+    const own = t.tickets || [];
+    if (own.some((x) => x.tier_code === 'V')) return 'V';
+    if (own.some((x) => x.tier_code === 'R')) return 'R';
+    return null;
+  };
+  const missingVip = missingOrders.filter((t) => tierOfTarget(t) === 'V');
+  const missingReg = missingOrders.filter((t) => tierOfTarget(t) === 'R');
+
   return (
     <div style={{
       background: 'rgba(255, 255, 255, 0.02)', backdropFilter: 'blur(10px)',
@@ -10692,6 +10732,45 @@ function TicketPdfPrepPanel({ orders, registrations, tickets, showToast, session
             </button>
           ) : (
             <React.Fragment>
+              <button style={{
+                  flex: '1 1 150px', padding: '12px 16px', borderRadius: 12,
+                  border: '1px solid rgba(255, 27, 107, 0.45)',
+                  background: 'rgba(255, 27, 107, 0.08)',
+                  color: 'var(--brand)', cursor: missingVip.length ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
+                  opacity: missingVip.length ? 1 : 0.45,
+                }}
+                disabled={!missingVip.length}
+                title="VIP orders only. Everything else is left unprepared, and the send skips anyone without a PDF."
+                onClick={() => runPrep(missingVip, 'missing')}>
+                PREPARE VIP ({missingVip.length})
+              </button>
+              <button style={{
+                  flex: '1 1 150px', padding: '12px 16px', borderRadius: 12,
+                  border: '1px solid rgba(0, 229, 255, 0.4)',
+                  background: 'rgba(0, 229, 255, 0.08)',
+                  color: 'var(--accent)', cursor: missingReg.length ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
+                  opacity: missingReg.length ? 1 : 0.45,
+                }}
+                disabled={!missingReg.length}
+                title="Regular orders only."
+                onClick={() => runPrep(missingReg, 'missing')}>
+                PREPARE REGULAR ({missingReg.length})
+              </button>
+              <button style={{
+                  flex: '1 1 150px', padding: '12px 16px', borderRadius: 12,
+                  border: '1px solid rgba(199, 36, 255, 0.4)',
+                  background: 'rgba(199, 36, 255, 0.08)',
+                  color: 'var(--brand-2)', cursor: missingRegs.length ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
+                  opacity: missingRegs.length ? 1 : 0.45,
+                }}
+                disabled={!missingRegs.length}
+                title="Participant groups only. Best left until after generation on the 15th."
+                onClick={() => runPrep(missingRegs, 'missing')}>
+                PREPARE PARTICIPANTS ({missingRegs.length})
+              </button>
               <button style={{
                   padding: '7px 14px', borderRadius: 6,
                   background: 'linear-gradient(90deg, #FF1B6B, #C724FF)',
@@ -12120,17 +12199,35 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
 
   useEffect(() => { loadSentToday(); }, [loadSentToday]);
 
+  // Which audience to send to. Deliberately starts at 'V': VIP is sold out and
+  // those buyers are waiting, whereas participants' sets are incomplete until
+  // generation. A default of 'all' would make the riskiest send the easiest.
+  const [scope, setScope] = useState('V');
+
   // Eligibility mirrors the Edge Function exactly: confirmed orders and paid
   // registrations that have never been stamped as sent.
   const eligible = useMemo(() => {
     const activeTicketCount = (pred) =>
       tickets.filter((t) => t.status !== 'cancelled' && pred(t)).length;
 
+    // Classify each order by the tier of the tickets it contains, so sends can
+    // be scoped. A PDF is built per ORDER and holds every ticket in it, so an
+    // order cannot be split across two sends. Kyla has confirmed no order
+    // currently mixes VIP and Regular; if one ever does, 'V' wins and the buyer
+    // receives their whole set under the VIP scope rather than being sent twice.
+    const tierOf = (orderId) => {
+      const own = tickets.filter((t) => t.order_id === orderId && t.status !== 'cancelled');
+      if (own.some((t) => t.tier_code === 'V')) return 'V';
+      if (own.some((t) => t.tier_code === 'R')) return 'R';
+      return null;
+    };
+
     const ord = (orders || [])
       .filter((o) => o.status === 'confirmed' && !o.tickets_pdf_sent_at)
       .map((o) => ({
         kind: 'order', id: o.id, label: o.order_number,
         recipient: o.buyer_email, name: o.buyer_name,
+        tier: tierOf(o.id),
         ticketCount: activeTicketCount((t) => t.order_id === o.id),
       }));
 
@@ -12139,19 +12236,30 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
       .map((r) => ({
         kind: 'registration', id: r.id, label: r.group_name || r.registration_code,
         recipient: r.leader_email, name: r.leader_name,
+        tier: 'P',
         ticketCount: activeTicketCount((t) => t.registration_id === r.id),
       }));
 
-    const all = ord.concat(reg);
+    const everything = ord.concat(reg);
+    // Only the chosen scope is eligible. Nothing outside it can be sent, even
+    // by accident, because the batch is drawn from this list.
+    const all = scope === 'all' ? everything
+              : everything.filter((x) => x.tier === scope);
     return {
       all,
+      everything,
       orders: ord,
       registrations: reg,
       noEmail: all.filter((x) => !x.recipient),
       noTickets: all.filter((x) => x.ticketCount === 0),
       ready: all.filter((x) => x.recipient && x.ticketCount > 0),
+      countByTier: {
+        V: everything.filter((x) => x.tier === 'V').length,
+        R: everything.filter((x) => x.tier === 'R').length,
+        P: everything.filter((x) => x.tier === 'P').length,
+      },
     };
-  }, [orders, registrations, tickets]);
+  }, [orders, registrations, tickets, scope]);
 
   const alreadySent = useMemo(() => {
     const o = (orders || []).filter((x) => x.tickets_pdf_sent_at).length;
@@ -12204,6 +12312,38 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
     <div style={{ padding: '20px 32px 40px' }}>
 
       {/* Counts */}
+      {/* Send scope. VIP first by default: those buyers are waiting and sold
+          out, whereas participants' sets stay incomplete until generation. */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        {[
+          { key: 'V', label: 'VIP', n: eligible.countByTier.V, color: '#FF1B6B' },
+          { key: 'R', label: 'Regular', n: eligible.countByTier.R, color: '#00E5FF' },
+          { key: 'P', label: 'Participants', n: eligible.countByTier.P, color: '#C724FF' },
+          { key: 'all', label: 'Everyone', n: eligible.everything.length, color: 'var(--text-soft)' },
+        ].map((s2) => (
+          <button key={s2.key} onClick={() => setScope(s2.key)}
+            style={{
+              padding: '9px 16px', borderRadius: 10, cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
+              background: scope === s2.key ? 'rgba(255,255,255,0.08)' : 'transparent',
+              border: '1px solid ' + (scope === s2.key ? s2.color : 'var(--border-strong)'),
+              color: scope === s2.key ? s2.color : 'var(--text-muted)',
+            }}>
+            {s2.label} ({s2.n})
+          </button>
+        ))}
+      </div>
+      {scope === 'P' && (
+        <div style={{
+          padding: '11px 14px', borderRadius: 10, marginBottom: 14,
+          background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)',
+        }}>
+          <div style={{ fontSize: 12.5, color: '#FFD37A', lineHeight: 1.6 }}>
+            Participants are best sent after generation on the 15th. Most groups
+            still have unpaid members, so their sets would arrive incomplete.
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <Stat label="READY TO SEND" value={eligible.ready.length} color="#00E676" />
         <Stat label="ORDERS" value={eligible.orders.length} />
