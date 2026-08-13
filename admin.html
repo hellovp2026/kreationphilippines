@@ -12204,6 +12204,30 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
   // generation. A default of 'all' would make the riskiest send the easiest.
   const [scope, setScope] = useState('V');
 
+  // Which PDFs actually exist. Without this the panel counted a target as ready
+  // if it had an email and a ticket — never checking storage — so Participants
+  // read "5 ready" when the true answer was zero, because no group has a PDF.
+  // A count that cannot distinguish sendable from unsendable is worse than no
+  // count, since it invites trust it has not earned.
+  const [preparedPaths, setPreparedPaths] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const found = new Set();
+        for (const folder of ['orders', 'registrations']) {
+          const ls = await supabase.storage.from('ticket-pdfs')
+            .list(folder, { limit: 1000 });
+          if (ls.error) throw ls.error;
+          (ls.data || []).forEach((f) => found.add(folder + '/' + f.name));
+        }
+        setPreparedPaths(found);
+      } catch (e) {
+        console.warn('[send panel] could not list ticket-pdfs:', e);
+        setPreparedPaths(new Set());
+      }
+    })();
+  }, []);
+
   // Eligibility mirrors the Edge Function exactly: confirmed orders and paid
   // registrations that have never been stamped as sent.
   const eligible = useMemo(() => {
@@ -12228,6 +12252,7 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
         kind: 'order', id: o.id, label: o.order_number,
         recipient: o.buyer_email, name: o.buyer_name,
         tier: tierOf(o.id),
+        hasPdf: preparedPaths ? preparedPaths.has('orders/' + o.id + '.pdf') : null,
         ticketCount: activeTicketCount((t) => t.order_id === o.id),
       }));
 
@@ -12237,6 +12262,7 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
         kind: 'registration', id: r.id, label: r.group_name || r.registration_code,
         recipient: r.leader_email, name: r.leader_name,
         tier: 'P',
+        hasPdf: preparedPaths ? preparedPaths.has('registrations/' + r.id + '.pdf') : null,
         ticketCount: activeTicketCount((t) => t.registration_id === r.id),
       }));
 
@@ -12252,14 +12278,19 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
       registrations: reg,
       noEmail: all.filter((x) => !x.recipient),
       noTickets: all.filter((x) => x.ticketCount === 0),
-      ready: all.filter((x) => x.recipient && x.ticketCount > 0),
+      noPdf: all.filter((x) => x.recipient && x.ticketCount > 0 && x.hasPdf === false),
+      // Ready means the function would actually select it: an address, a ticket
+      // AND a prepared PDF. While the listing is still loading hasPdf is null,
+      // and a null is not treated as ready — better to under-report briefly than
+      // to claim sendable and be wrong.
+      ready: all.filter((x) => x.recipient && x.ticketCount > 0 && x.hasPdf === true),
       countByTier: {
         V: everything.filter((x) => x.tier === 'V').length,
         R: everything.filter((x) => x.tier === 'R').length,
         P: everything.filter((x) => x.tier === 'P').length,
       },
     };
-  }, [orders, registrations, tickets, scope]);
+  }, [orders, registrations, tickets, scope, preparedPaths]);
 
   const alreadySent = useMemo(() => {
     const o = (orders || []).filter((x) => x.tickets_pdf_sent_at).length;
@@ -12345,12 +12376,18 @@ function TicketEmailPanel({ orders, registrations, tickets, adminEmail }) {
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        {/* Every figure here now reflects the SELECTED SCOPE. ORDERS and GROUPS
+            previously counted every confirmed order and paid registration
+            regardless of scope, so three numbers sat side by side and two of
+            them answered a different question from the one the operator had
+            asked. */}
         <Stat label="READY TO SEND" value={eligible.ready.length} color="#00E676" />
-        <Stat label="ORDERS" value={eligible.orders.length} />
-        <Stat label="GROUPS" value={eligible.registrations.length} color="#C724FF" />
+        <Stat label="ORDERS IN SCOPE" value={eligible.all.filter((x) => x.kind === 'order').length} />
+        <Stat label="GROUPS IN SCOPE" value={eligible.all.filter((x) => x.kind === 'registration').length} color="#C724FF" />
         <Stat label="ALREADY SENT" value={alreadySent.total} color="#00E5FF" />
         <Stat label="NO EMAIL" value={eligible.noEmail.length} color={eligible.noEmail.length ? '#FFB300' : undefined} />
         <Stat label="NO TICKETS" value={eligible.noTickets.length} color={eligible.noTickets.length ? '#FFB300' : undefined} />
+        <Stat label="NO PDF YET" value={eligible.noPdf.length} color={eligible.noPdf.length ? '#FFB300' : undefined} />
         <Stat
           label="SENT TODAY (UTC)"
           value={sentToday === null ? '...' : sentToday + ' / ' + DAILY_CAP}
