@@ -3617,12 +3617,34 @@ function Dashboard({ session, adminRecord }) {
       return false;
     }
 
+    // Same reason as on add: the fee reads member_count, not the member rows, so
+    // a drop that leaves the count high keeps billing the group for someone who
+    // has left. Recomputed from live rows so it corrects drift either way.
+    const liveCount = await supabase
+      .from('registration_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('registration_id', member.registration_id)
+      .neq('payment_status', 'dropped');
+    if (!liveCount.error && typeof liveCount.count === 'number') {
+      const cu = await supabase.from('registrations')
+        .update({ member_count: liveCount.count })
+        .eq('id', member.registration_id);
+      if (cu.error) {
+        showToast('Member dropped, but the member count did not update — the group '
+          + 'is still being billed for them.', 'warning');
+      }
+    }
+
     await supabase.from('audit_log').insert({
       actor_email: session.user.email,
       action: 'member_dropped',
       resource_type: 'registration_member',
       resource_id: member.id,
-      details: { name: member.member_name, reason: reason || null },
+      details: {
+        name: member.member_name, reason: reason || null,
+        member_count_now: (!liveCount.error && typeof liveCount.count === 'number')
+          ? liveCount.count : null,
+      },
     });
 
     showToast(member.member_name + ' dropped');
@@ -3686,12 +3708,42 @@ function Dashboard({ session, adminRecord }) {
       return false;
     }
 
+    // Keep member_count in step with the actual rows. It is a separate NOT NULL
+    // column and the fee is computed FROM IT, not from the member rows:
+    //   const fee = isDanceCategory ? (reg.member_count || 0) * 300 : 0
+    // So adding a member without updating it under-bills the group by P300 —
+    // the new person appears on the roster and on the payment page but not in
+    // the amount due. Recomputed from the live rows rather than incremented, so
+    // it self-corrects any existing drift instead of preserving it.
+    const liveCount = await supabase
+      .from('registration_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('registration_id', registrationId)
+      .neq('payment_status', 'dropped');
+    if (!liveCount.error && typeof liveCount.count === 'number') {
+      const cu = await supabase.from('registrations')
+        .update({ member_count: liveCount.count })
+        .eq('id', registrationId);
+      if (cu.error) {
+        showToast('Member added, but the member count did not update — the fee will '
+          + 'be short by P300. Tell Kyla.', 'warning');
+      }
+    } else {
+      showToast('Member added, but the member count could not be recomputed. '
+        + 'Check the fee.', 'warning');
+    }
+
     await supabase.from('audit_log').insert({
       actor_email: session.user.email,
       action: 'member_added',
       resource_type: 'registration_member',
       resource_id: ins.data.id,
-      details: { name: memberName, inherited_from: inheritFromMember ? inheritFromMember.id : null },
+      details: {
+        name: memberName,
+        inherited_from: inheritFromMember ? inheritFromMember.id : null,
+        member_count_now: (!liveCount.error && typeof liveCount.count === 'number')
+          ? liveCount.count : null,
+      },
     });
 
     showToast(memberName + ' added' + (inheritFromMember ? ' as substitute' : ''));
@@ -4037,6 +4089,10 @@ function Dashboard({ session, adminRecord }) {
           <Icon name="ticket" size={14} />
           <span>Generate Tickets</span>
         </button>
+        <button onClick={() => setSection('blockings')} style={sectionBtnStyle(section === 'blockings')}>
+          <Icon name="clock" size={14} />
+          <span>Blockings</span>
+        </button>
         <button onClick={() => setSection('issues')} style={sectionBtnStyle(section === 'issues')}>
           <Icon name="alert" size={14} />
           <span>Ongoing Issues</span>
@@ -4307,6 +4363,12 @@ function Dashboard({ session, adminRecord }) {
         busy={genBusy}
         lastResult={genResult}
         onRefresh={() => { fetchTickets(); fetchRegistrations(); }}
+      />
+      ) : section === 'blockings' ? (
+      <BlockingsView
+        registrations={registrations}
+        showToast={showToast}
+        adminEmail={session.user.email}
       />
       ) : section === 'issues' ? (
       <OngoingIssuesView
@@ -11970,6 +12032,349 @@ function TicketGenerationPanel({ registrations, members, tickets, allTicketCodes
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// STAGE BLOCKINGS
+//
+// The running order for the two rehearsal days, plus the chase list of entries
+// that have not booked. That second list is the one that matters: with 45
+// entries against 46 slots, the last group to book has almost no choice, so
+// knowing who is outstanding on the 19th is worth more than the schedule.
+//
+// Reads rehearsal_slots directly under the admin policy. Mutations go through
+// two RPCs rather than updates from here, because a move must release the old
+// slot and claim the new one in ONE transaction — registration_id is unique, so
+// claiming first violates the constraint, and releasing first risks leaving the
+// group with no slot if the second write fails.
+// ============================================================
+
+// Times are shown as groups see them on blocking.html — 12-hour with a
+// meridiem — not as 20:00. A group referring to "my 8:18 slot" has to match what
+// is on screen here.
+function slotClock(t) {
+  const p = String(t || '').split(':');
+  let h = parseInt(p[0], 10) || 0;
+  const m = p[1] || '00';
+  const ap = h >= 12 ? 'PM' : 'AM';
+  let hh = h % 12; if (hh === 0) hh = 12;
+  return { hm: hh + ':' + m, ap: ap };
+}
+function slotRange(a, b) {
+  const s1 = slotClock(a), s2 = slotClock(b);
+  return s1.hm + '\u2013' + s2.hm + ' ' + s2.ap;
+}
+
+function BlockingsView({ registrations, showToast, adminEmail }) {
+  const [slots, setSlots] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [moveFor, setMoveFor] = useState(null);
+
+  const fetchSlots = useCallback(async () => {
+    setLoading(true);
+    const r = await supabase
+      .from('rehearsal_slots')
+      .select('*')
+      .order('display_order');
+    if (r.error) {
+      showToast('Could not load the blockings schedule: ' + r.error.message, 'warning');
+      setSlots([]);
+    } else {
+      setSlots(r.data || []);
+    }
+    setLoading(false);
+  }, [showToast]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  const regById = useMemo(() => {
+    const m = {};
+    (registrations || []).forEach((r) => { m[r.id] = r; });
+    return m;
+  }, [registrations]);
+
+  // Entries that could book but have not. Same live-status filter the booking
+  // page uses, so this list matches who the page would actually accept.
+  const unbooked = useMemo(() => {
+    if (!slots) return [];
+    const taken = {};
+    slots.forEach((s) => { if (s.registration_id) taken[s.registration_id] = true; });
+    return (registrations || [])
+      .filter((r) => ['pending', 'confirmed', 'paid'].indexOf(r.status) !== -1)
+      .filter((r) => !taken[r.id])
+      .sort((a, b) => (a.group_name || '').localeCompare(b.group_name || ''));
+  }, [slots, registrations]);
+
+  const openSlots = useMemo(
+    () => (slots || []).filter((s) => !s.registration_id), [slots]);
+
+  const doClear = useCallback(async (regId, who) => {
+    if (!window.confirm('Release ' + who + ' from their slot? They will be able to book again.')) return;
+    setBusyId(regId);
+    const r = await supabase.rpc('admin_clear_rehearsal_booking', { p_registration_id: regId });
+    setBusyId(null);
+    if (r.error) { showToast('Failed: ' + r.error.message, 'warning'); return; }
+    if (!r.data || !r.data.ok) { showToast((r.data && r.data.error) || 'Failed', 'warning'); return; }
+    showToast(r.data.message);
+    fetchSlots();
+  }, [showToast, fetchSlots]);
+
+  const doMove = useCallback(async (regId, slotId) => {
+    setBusyId(regId);
+    const r = await supabase.rpc('admin_move_rehearsal_booking', {
+      p_registration_id: regId, p_new_slot_id: slotId,
+    });
+    setBusyId(null);
+    setMoveFor(null);
+    if (r.error) { showToast('Move failed: ' + r.error.message, 'warning'); return; }
+    if (!r.data || !r.data.ok) { showToast((r.data && r.data.error) || 'Move failed', 'warning'); return; }
+    showToast(r.data.message);
+    fetchSlots();
+  }, [showToast, fetchSlots]);
+
+  // A self-contained window rather than print CSS on this page: admin has no
+  // print styles and adding them could affect every other view.
+  const printRunOrder = useCallback(() => {
+    if (!slots) return;
+    const rows = slots.map((s) => {
+      const reg = s.registration_id ? regById[s.registration_id] : null;
+      const who = reg
+        ? (reg.group_name + ' — ' + (reg.category === 'k-classics' ? 'K-Classics' : 'Open Stage'))
+        : '';
+      const code = reg ? reg.registration_code : '';
+      const t = slotRange(s.start_time, s.end_time);
+      return '<tr><td>' + t + '</td><td><b>' + (who || '—') + '</b></td><td>'
+        + code + '</td><td class="sig"></td></tr>';
+    }).join('');
+    const days = {};
+    slots.forEach((s) => { days[s.slot_date] = true; });
+    const css = 'body{font-family:system-ui,sans-serif;margin:24px;color:#111}'
+      + 'h1{font-size:19px;margin:0 0 3px}p{font-size:12px;color:#555;margin:0 0 16px}'
+      + 'table{width:100%;border-collapse:collapse;font-size:12px}'
+      + 'th{text-align:left;border-bottom:2px solid #111;padding:6px 5px;font-size:10px;'
+      + 'letter-spacing:.08em;text-transform:uppercase}'
+      + 'td{border-bottom:1px solid #ddd;padding:7px 5px}'
+      + 'td:first-child{font-family:ui-monospace,monospace;white-space:nowrap}'
+      + '.sig{width:110px}'
+      + '@media print{@page{margin:12mm}}';
+    // Split so the literal does not appear in the file. The deploy gate counts
+    // occurrences of the doctype to catch a doubled file, and a second one
+    // inside a string would either fail that gate or force it to be weakened.
+    const html = '<!DOC' + 'TYPE html><html><head><meta charset="utf-8">'
+      + '<title>Stage Blockings run order</title><style>' + css + '</style></head><body>'
+      + '<h1>Stage Blockings &mdash; run order</h1>'
+      + '<p>DKC 2026 &middot; CAP Grand Auditorium &middot; 7 minutes on stage, 2 to clear'
+      + ' &middot; printed ' + new Date().toLocaleString('en-PH') + '</p>'
+      + '<table><thead><tr><th>Time</th><th>Group</th><th>Reg ID</th>'
+      + '<th>Checked in</th></tr></thead><tbody>' + rows + '</tbody></table></body></html>';
+    const w = window.open('', '_blank');
+    if (!w) { showToast('Allow pop-ups to print the run order', 'warning'); return; }
+    w.document.write(html);
+    w.document.close();
+  }, [slots, regById, showToast]);
+
+  const byDay = useMemo(() => {
+    if (!slots) return [];
+    const g = {};
+    slots.forEach((s) => { (g[s.slot_date] = g[s.slot_date] || []).push(s); });
+    return Object.keys(g).sort().map((d) => ({ date: d, items: g[d] }));
+  }, [slots]);
+
+  const bookedCount = slots ? slots.filter((s) => s.registration_id).length : 0;
+
+  const Stat = ({ label, value, color }) => (
+    <div style={{ padding: '11px 14px', borderRadius: 10, minWidth: 118,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text-soft)',
+                    fontWeight: 700, marginBottom: 3 }}>{label}</div>
+      <div className="font-display" style={{ fontSize: 19, fontWeight: 800,
+                                             color: color || 'var(--text)' }}>{value}</div>
+    </div>
+  );
+
+  if (loading && slots === null) {
+    return <div style={{ padding: '30px 32px', color: 'var(--text-soft)', fontSize: 14 }}>
+      Loading the blockings schedule...
+    </div>;
+  }
+
+  if (slots && slots.length === 0) {
+    return <div style={{ padding: '30px 32px' }}>
+      <div style={{ padding: '18px 20px', borderRadius: 12, fontSize: 14, lineHeight: 1.7,
+                    background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)',
+                    color: '#FFD37A' }}>
+        No slots found. Either rehearsal_slots.sql has not been run, or this admin
+        session cannot read the table.
+      </div>
+    </div>;
+  }
+
+  return (
+    <div style={{ padding: '20px 32px 40px' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <Stat label="BOOKED" value={bookedCount} color="#00E676" />
+        <Stat label="OPEN" value={openSlots.length} color={openSlots.length ? '#00E5FF' : '#FFB300'} />
+        <Stat label="NOT BOOKED YET" value={unbooked.length}
+              color={unbooked.length ? '#FFB300' : '#00E676'} />
+        <Stat label="TOTAL SLOTS" value={slots.length} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 22 }}>
+        <button onClick={fetchSlots}
+          style={{ padding: '9px 15px', borderRadius: 9, fontSize: 12.5, cursor: 'pointer',
+                   fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)',
+                   border: '1px solid var(--border-strong)', color: 'var(--text-muted)' }}>
+          Refresh
+        </button>
+        <button onClick={printRunOrder}
+          style={{ padding: '9px 15px', borderRadius: 9, fontSize: 12.5, cursor: 'pointer',
+                   fontFamily: 'inherit', background: 'rgba(0,229,255,0.08)',
+                   border: '1px solid rgba(0,229,255,0.35)', color: 'var(--accent)',
+                   fontWeight: 700 }}>
+          Print run order
+        </button>
+      </div>
+
+      {unbooked.length > 0 && (
+        <div style={{ background: 'var(--warn-bg)', border: '1px dashed rgba(255,179,0,0.4)',
+                      borderRadius: 12, padding: '15px 18px', marginBottom: 24 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFD37A', marginBottom: 4 }}>
+            {unbooked.length} {unbooked.length === 1 ? 'entry has' : 'entries have'} not booked
+          </div>
+          <div style={{ fontSize: 12, color: '#FFD37A', opacity: 0.82, marginBottom: 11,
+                        lineHeight: 1.55 }}>
+            {openSlots.length} slots left. The last to book has the least choice, so chase
+            these before the schedule fills.
+          </div>
+          <div style={{ maxHeight: 230, overflowY: 'auto' }}>
+            {unbooked.map((r) => (
+              <div key={r.id} style={{ display: 'flex', gap: 10, padding: '5px 0',
+                                       fontSize: 12.5, flexWrap: 'wrap',
+                                       borderBottom: '1px solid rgba(255,179,0,0.14)' }}>
+                <span style={{ minWidth: 170, fontWeight: 600, color: '#FFE3AD' }}>
+                  {r.group_name}
+                </span>
+                <span style={{ minWidth: 88, color: '#FFD37A' }}>
+                  {r.category === 'k-classics' ? 'K-Classics' : 'Open Stage'}
+                </span>
+                <span className="font-mono" style={{ minWidth: 84, color: '#FFD37A' }}>
+                  {r.registration_code}
+                </span>
+                <span style={{ color: '#FFD37A', opacity: 0.85 }}>
+                  {r.leader_name}{r.leader_phone ? ' \u00b7 ' + r.leader_phone : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {byDay.map((day) => (
+        <div key={day.date} style={{ marginBottom: 26 }}>
+          <div className="font-display" style={{ fontSize: 14, marginBottom: 10 }}>
+            {day.date === '2026-08-21' ? 'FRIDAY 21 AUGUST' : 'SATURDAY 22 AUGUST'}
+            <span style={{ fontFamily: 'inherit', fontWeight: 400, fontSize: 12,
+                           color: 'var(--text-soft)', marginLeft: 10 }}>
+              {day.items.filter((s) => s.registration_id).length} of {day.items.length} booked
+            </span>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                        borderRadius: 12, overflow: 'hidden' }}>
+            {day.items.map((s) => {
+              const reg = s.registration_id ? regById[s.registration_id] : null;
+              // moveFor starts as null and an open slot's registration_id is
+              // also null, so a bare equality check reads TRUE for every open
+              // slot — which then tried to render reg.group_name on a null and
+              // took the whole tab down. Require a booking to exist first.
+              const isMoving = !!s.registration_id && moveFor === s.registration_id;
+              return (
+                <div key={s.id} style={{ padding: '10px 15px',
+                                         borderBottom: '1px solid var(--border)',
+                                         background: reg ? 'transparent' : 'rgba(0,229,255,0.03)' }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className="font-mono" style={{ minWidth: 122, fontSize: 13, fontWeight: 600 }}>
+                      {slotRange(s.start_time, s.end_time)}
+                    </span>
+                    {reg ? (
+                      <React.Fragment>
+                        <span style={{ minWidth: 165, fontWeight: 600, fontSize: 13 }}>
+                          {reg.group_name}
+                        </span>
+                        <span style={{ minWidth: 86, fontSize: 12, color: 'var(--text-muted)' }}>
+                          {reg.category === 'k-classics' ? 'K-Classics' : 'Open Stage'}
+                        </span>
+                        <span className="font-mono" style={{ minWidth: 84, fontSize: 11.5,
+                                                             color: 'var(--text-soft)' }}>
+                          {reg.registration_code}
+                        </span>
+                        <span style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
+                          <button
+                            disabled={busyId === s.registration_id}
+                            onClick={() => setMoveFor(isMoving ? null : s.registration_id)}
+                            style={{ padding: '6px 11px', borderRadius: 8, fontSize: 11.5,
+                                     cursor: 'pointer', fontFamily: 'inherit',
+                                     background: 'rgba(255,255,255,0.05)',
+                                     border: '1px solid var(--border-strong)',
+                                     color: 'var(--text-muted)' }}>
+                            {isMoving ? 'Cancel' : 'Move'}
+                          </button>
+                          <button
+                            disabled={busyId === s.registration_id}
+                            onClick={() => doClear(s.registration_id,
+                              reg.group_name + ' (' + reg.category + ')')}
+                            style={{ padding: '6px 11px', borderRadius: 8, fontSize: 11.5,
+                                     cursor: 'pointer', fontFamily: 'inherit',
+                                     background: 'rgba(255,27,107,0.08)',
+                                     border: '1px solid rgba(255,27,107,0.35)',
+                                     color: 'var(--brand)' }}>
+                            Release
+                          </button>
+                        </span>
+                      </React.Fragment>
+                    ) : (
+                      <span style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
+                        Open
+                      </span>
+                    )}
+                  </div>
+
+                  {isMoving && (
+                    <div style={{ marginTop: 10, paddingTop: 10,
+                                  borderTop: '1px dashed var(--border-strong)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Move {reg.group_name} to which open slot?
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap',
+                                    maxHeight: 130, overflowY: 'auto' }}>
+                        {openSlots.length === 0 ? (
+                          <span style={{ fontSize: 12, color: '#FFD37A' }}>
+                            No open slots. Release another booking first.
+                          </span>
+                        ) : openSlots.map((o) => (
+                          <button key={o.id}
+                            onClick={() => doMove(s.registration_id, o.id)}
+                            disabled={busyId === s.registration_id}
+                            className="font-mono"
+                            style={{ padding: '6px 10px', borderRadius: 7, fontSize: 11.5,
+                                     cursor: 'pointer',
+                                     background: 'rgba(0,229,255,0.07)',
+                                     border: '1px solid rgba(0,229,255,0.3)',
+                                     color: 'var(--accent)' }}>
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
