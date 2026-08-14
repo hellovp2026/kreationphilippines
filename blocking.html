@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stage Blockings · Davao K-Pop Convention 2026</title>
+<link rel="icon" type="image/png" href="./kph-favicon.png" />
+<meta name="description" content="Book your stage rehearsal slot for Davao K-Pop Convention 2026." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* ------------------------------------------------------------------
+   A stage call sheet, not a card grid.
+
+   Time runs DOWN the page because that is how every call sheet works. A
+   grid of identical tiles says "pick any of these"; a rail says "this is
+   the running order of the evening", which is what it actually is, and
+   the hour is its structural unit.
+
+   Surfaces sit at 5.5% white rather than 3%: at 3% on near-black the
+   tiles were invisible on a phone in daylight, which is where groups
+   will actually book.
+   ------------------------------------------------------------------ */
+:root {
+  --brand: #FF1B6B;
+  --brand-2: #C724FF;
+  --accent: #00E5FF;
+
+  --bg: #0C0512;
+  --panel: #170B21;
+  --rail: rgba(255, 255, 255, 0.10);
+  --row: rgba(255, 255, 255, 0.055);
+  --row-hover: rgba(255, 27, 107, 0.13);
+  --edge: rgba(255, 255, 255, 0.14);
+  --edge-strong: rgba(255, 255, 255, 0.24);
+
+  --text: #FFFFFF;
+  --text-muted: #CFC9E0;
+  --text-soft: #9A93B0;
+  --ok: #2BE08A;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+body {
+  font-family: 'Sora', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+.wrap { max-width: 780px; margin: 0 auto; padding: 0 18px 150px; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.display { font-family: 'Bungee', 'Sora', sans-serif; letter-spacing: -0.01em; }
+
+/* The eyebrow carries the venue, not a step number. Numbered markers only
+   earn their place when order is information the reader needs. */
+.eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; letter-spacing: 0.18em;
+  color: var(--text-soft); text-transform: uppercase;
+}
+
+input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--edge-strong);
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  font-size: 15px; padding: 13px 15px;
+  border-radius: 10px; outline: none;
+  transition: border-color .14s, background .14s;
+}
+input:focus { border-color: var(--brand); background: rgba(255, 27, 107, 0.09); }
+input::placeholder { color: var(--text-soft); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.hourblock { display: grid; grid-template-columns: 62px 1fr; }
+.hourmark { padding-top: 14px; border-right: 1px solid var(--rail); }
+.hourmark span {
+  font-family: 'Bungee', sans-serif;
+  font-size: 13px; color: var(--text-soft);
+  position: sticky; top: 12px; display: block;
+}
+.rows { padding: 6px 0 6px 16px; display: grid; gap: 7px; }
+
+.row {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center; gap: 12px;
+  background: var(--row);
+  border: 1px solid var(--edge);
+  border-left: 3px solid transparent;
+  border-radius: 9px; padding: 12px 14px;
+  cursor: pointer;
+  transition: background .13s, border-color .13s, transform .13s;
+}
+.row:hover:not(.gone) {
+  background: var(--row-hover);
+  border-color: rgba(255, 27, 107, 0.5);
+  border-left-color: var(--brand);
+  transform: translateX(2px);
+}
+.row.picked {
+  background: rgba(255, 27, 107, 0.18);
+  border-color: var(--brand);
+  border-left-color: var(--brand);
+}
+.row.gone {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.022);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.row.gone .time {
+  color: var(--text-soft);
+  text-decoration: line-through; text-decoration-thickness: 1px;
+}
+
+.time { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; }
+.state {
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 700; font-family: 'JetBrains Mono', monospace;
+}
+
+.btn {
+  width: 100%; padding: 15px; border-radius: 11px; border: none;
+  font-family: 'Sora', sans-serif; font-size: 14.5px; font-weight: 700;
+  color: #fff; cursor: pointer; background: var(--brand);
+}
+.btn:disabled {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-soft); cursor: not-allowed;
+}
+.btn-ghost {
+  padding: 14px 18px; border-radius: 11px;
+  border: 1px solid var(--edge-strong); background: transparent;
+  color: var(--text-muted); font-family: 'Sora', sans-serif;
+  font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+
+/* ---- motion ----
+   Three pieces, each showing something the page previously only stated.
+
+   1. The capacity bar makes "40 of 46 open" visible as a quantity, and fills
+      toward pink as the schedule fills. A number tells you; a bar shows you.
+   2. Rows rise in per hour block, so the schedule reads as a sequence being
+      called rather than a list appearing at once. Staggered WITHIN the hour so
+      each block lands as a unit and the last row does not wait a second.
+   3. The picked row gets a followspot: a soft pink pool that scales out from
+      the row. It is the one indulgence, and it is the stage's own vocabulary
+      rather than a generic highlight. */
+
+.capacity {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.09);
+  margin-top: 11px; max-width: 320px;
+}
+.capacity > i {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--brand-2) 70%, var(--brand));
+  transition: width .7s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: none; }
+}
+.row { animation: riseIn .34s cubic-bezier(.2,.8,.2,1) backwards; }
+
+.hourmark { position: relative; }
+/* The rail draws down as the block appears, so the hour reads as a span of time
+   rather than a label. */
+.hourmark::after {
+  content: ''; position: absolute; top: 0; right: -1px; width: 1px; bottom: 0;
+  background: var(--brand); opacity: .28;
+  transform-origin: top; animation: drawRail .5s ease-out backwards;
+}
+@keyframes drawRail { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* The followspot. Sits behind the row, scales out from the centre. */
+.row.picked { position: relative; }
+.row.picked::before {
+  content: ''; position: absolute; inset: -14px -20px; z-index: -1;
+  border-radius: 20px;
+  background: radial-gradient(60% 120% at 22% 50%, rgba(255,27,107,.42), transparent 72%);
+  animation: spot .42s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes spot {
+  from { opacity: 0; transform: scale(.72); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+.panel-in { animation: slideUp .28s cubic-bezier(.2,.8,.2,1); }
+
+@media (max-width: 460px) {
+  .hourblock { grid-template-columns: 46px 1fr; }
+  .rows { padding-left: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .row, .hourmark::after, .panel-in { opacity: 1 !important; transform: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+const SUPABASE_URL = 'https://zxichjnifawondqqbrxn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_298EyDyzguh8YMyzPPJeaA_glbUxJfH';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CONTACT_EMAIL = 'kreationph@gmail.com';
+const FB_URL = 'https://www.facebook.com/profile.php?id=61589464537883';
+
+function parts(t) {
+  const p = String(t || '').split(':');
+  return { h: parseInt(p[0], 10) || 0, m: p[1] || '00' };
+}
+function clock(t) {
+  const o = parts(t);
+  let hh = o.h % 12; if (hh === 0) hh = 12;
+  return hh + ':' + o.m;
+}
+function meridiem(t) { return parts(t).h >= 12 ? 'PM' : 'AM'; }
+function hourName(h) {
+  let hh = h % 12; if (hh === 0) hh = 12;
+  return hh + (h >= 12 ? 'PM' : 'AM');
+}
+function dayName(d) {
+  return d === '2026-08-21'
+    ? { big: 'Friday 21 August', note: 'The night before. Stage door only, no audience.' }
+    : { big: 'Saturday 22 August', note: 'Event day, before the hall opens.' };
+}
+
+function Masthead({ openCount, total, done }) {
+  return (
+    <header style={{ paddingTop: 44, paddingBottom: 26 }}>
+      <div className="eyebrow" style={{ marginBottom: 15 }}>
+        CAP Grand Auditorium · Davao · Edition 06
+      </div>
+      <h1 className="display" style={{
+        fontSize: 'clamp(32px, 8vw, 58px)', lineHeight: 0.98,
+        margin: '0 0 18px', textTransform: 'uppercase',
+      }}>Stage<br />Blockings</h1>
+      {!done && (
+        <React.Fragment>
+          <p style={{
+            fontSize: 15.5, color: 'var(--text-muted)', lineHeight: 1.68,
+            margin: '0 0 8px', maxWidth: 520,
+          }}>
+            Seven minutes on stage for your markings and a full run of your
+            routine, plus two to clear. Pick a time, then tell us who you are.
+          </p>
+          <p style={{
+            fontSize: 14, color: 'var(--text-soft)', lineHeight: 1.6,
+            margin: '0 0 8px', maxWidth: 520,
+          }}>
+            Bring your own speakers. Competing in both categories? Book twice
+            {'\u2014'} each entry has its own registration ID and its own slot.
+          </p>
+          <p style={{
+            fontSize: 14, color: '#FFB3C6', lineHeight: 1.6,
+            margin: 0, maxWidth: 520, fontWeight: 600,
+          }}>
+            Miss your slot and it is gone {'\u2014'} there is no rebooking.
+          </p>
+          {total > 0 && (
+            <div style={{ marginTop: 22 }}>
+              <div className="mono" style={{
+                fontSize: 12.5, fontWeight: 600,
+                color: openCount ? 'var(--accent)' : 'var(--brand)',
+              }}>
+                {openCount} of {total} slots still open
+              </div>
+              <div className="capacity" role="img"
+                aria-label={openCount + ' of ' + total + ' slots still open'}>
+                <i style={{ width: (100 - (openCount / total) * 100).toFixed(1) + '%' }} />
+              </div>
+            </div>
+          )}
+        </React.Fragment>
+      )}
+    </header>
+  );
+}
+
+function Rail({ slots, picked, onPick, disabled }) {
+  const days = useMemo(() => {
+    const byDay = {};
+    slots.forEach((s) => { (byDay[s.slot_date] = byDay[s.slot_date] || []).push(s); });
+    return Object.keys(byDay).sort().map((d) => {
+      const byHour = {};
+      byDay[d].forEach((s) => {
+        const k = parts(s.start_time).h;
+        (byHour[k] = byHour[k] || []).push(s);
+      });
+      return {
+        date: d,
+        open: byDay[d].filter((s) => s.state === 'open').length,
+        hours: Object.keys(byHour).map(Number).sort((a, b) => a - b)
+          .map((h) => ({ hour: h, items: byHour[h] })),
+      };
+    });
+  }, [slots]);
+
+  return (
+    <div>
+      {days.map((day) => {
+        const n = dayName(day.date);
+        return (
+          <section key={day.date} style={{ marginBottom: 34 }}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', gap: 11, flexWrap: 'wrap',
+              paddingBottom: 11, borderBottom: '1px solid var(--edge)',
+            }}>
+              <h2 className="display" style={{
+                fontSize: 19, margin: 0, textTransform: 'uppercase',
+              }}>{n.big}</h2>
+              <span className="mono" style={{
+                fontSize: 12, fontWeight: 600,
+                color: day.open ? 'var(--accent)' : 'var(--text-soft)',
+              }}>{day.open} open</span>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-soft)', padding: '10px 0 14px' }}>
+              {n.note}
+            </div>
+
+            {day.hours.map((block) => (
+              <div className="hourblock" key={block.hour}>
+                <div className="hourmark"><span>{hourName(block.hour)}</span></div>
+                <div className="rows">
+                  {block.items.map((s, i) => {
+                    const gone = s.state !== 'open';
+                    const isPicked = picked && picked.slot_id === s.slot_id;
+                    return (
+                      <div key={s.slot_id}
+                        className={'row' + (gone ? ' gone' : '') + (isPicked ? ' picked' : '')}
+                        role="button" tabIndex={gone || disabled ? -1 : 0}
+                        aria-disabled={gone || disabled}
+                        onClick={() => { if (!gone && !disabled) onPick(s); }}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && !gone && !disabled) {
+                            e.preventDefault(); onPick(s);
+                          }
+                        }}
+                        style={{ animationDelay: (i * 34) + 'ms' }}>
+                        <div>
+                          <span className="time">
+                            {clock(s.start_time)}{'\u2013'}{clock(s.end_time)}
+                          </span>
+                          <span className="mono" style={{
+                            fontSize: 11.5, color: 'var(--text-soft)', marginLeft: 7,
+                          }}>{meridiem(s.start_time)}</span>
+                        </div>
+                        <div className="state" style={{
+                          color: isPicked ? 'var(--brand)'
+                            : s.state === 'booked' ? 'var(--text-soft)'
+                            : s.state === 'held' ? '#FFC24D'
+                            : 'var(--ok)',
+                        }}>
+                          {isPicked ? 'Yours'
+                            : s.state === 'booked' ? 'Taken'
+                            : s.state === 'held' ? 'Booking now'
+                            : 'Open'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function BookPanel({ picked, groupName, setGroupName, code, setCode,
+                     onBook, onClear, busy, error }) {
+  const ready = groupName.trim().length > 1 && code.trim().length > 3;
+  const submit = () => { if (ready && !busy) onBook(); };
+
+  return (
+    <div className="panel-in" style={{
+      position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
+      background: 'var(--panel)',
+      borderTop: '1px solid var(--edge-strong)',
+      boxShadow: '0 -18px 44px rgba(0,0,0,0.62)',
+    }}>
+      <div style={{ maxWidth: 780, margin: '0 auto', padding: '18px 18px 22px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'baseline', gap: 10,
+          marginBottom: 15, flexWrap: 'wrap',
+        }}>
+          <div className="mono" style={{ fontSize: 16, fontWeight: 700, color: 'var(--brand)' }}>
+            {clock(picked.start_time)}{'\u2013'}{clock(picked.end_time)} {meridiem(picked.start_time)}
+          </div>
+          <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+            {dayName(picked.slot_date).big}
+          </div>
+          <button onClick={onClear} className="mono" style={{
+            marginLeft: 'auto', background: 'none', border: 'none',
+            color: 'var(--text-soft)', fontSize: 11.5, cursor: 'pointer',
+            textDecoration: 'underline', padding: 0,
+          }}>change</button>
+        </div>
+
+        <div style={{
+          display: 'grid', gap: 10, marginBottom: 13,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(158px, 1fr))',
+        }}>
+          <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="Group name" autoComplete="off" aria-label="Group name" />
+          <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="DKC-XXXX" className="mono" autoComplete="off"
+            aria-label="Registration ID" style={{ letterSpacing: 1.4 }} />
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '11px 13px', borderRadius: 9, marginBottom: 12,
+            background: 'rgba(255, 27, 107, 0.13)',
+            border: '1px solid rgba(255, 27, 107, 0.42)',
+            fontSize: 13, lineHeight: 1.55, color: '#FFB3C6',
+          }}>{error}</div>
+        )}
+
+        <button className="btn" onClick={submit} disabled={!ready || busy}>
+          {busy ? 'Booking\u2026' : 'Book this slot'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Booked({ result, onAnother }) {
+  return (
+    <div style={{ paddingTop: 10 }}>
+      <div style={{
+        border: '1px solid rgba(43, 224, 138, 0.45)',
+        background: 'rgba(43, 224, 138, 0.07)',
+        borderRadius: 14, padding: '28px 24px', marginBottom: 24,
+      }}>
+        <div className="eyebrow" style={{ color: 'var(--ok)', marginBottom: 14 }}>
+          Booked · screenshot this
+        </div>
+        <div className="mono" style={{
+          fontSize: 'clamp(24px, 6.4vw, 36px)', fontWeight: 700,
+          lineHeight: 1.05, marginBottom: 9,
+        }}>
+          {clock(result.start_time)}{'\u2013'}{clock(result.end_time)} {meridiem(result.start_time)}
+        </div>
+        <div className="display" style={{
+          fontSize: 16, marginBottom: 5, textTransform: 'uppercase',
+        }}>{dayName(result.slot_date).big}</div>
+        <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>
+          {result.group_name} · {result.category === 'k-classics' ? 'K-Classics' : 'Open Stage'}
+        </div>
+
+        <div style={{
+          marginTop: 24, paddingTop: 20,
+          borderTop: '1px solid rgba(43, 224, 138, 0.25)',
+          fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.75,
+        }}>
+          <strong style={{ color: 'var(--text)' }}>Bring your own speakers</strong>,
+          and your track on a USB as backup. Use the time for your markings and a
+          full run of the routine. Check in at the stage door ten minutes before.
+          <br /><br />
+          <strong style={{ color: '#FFB3C6' }}>Arrive on time.</strong> If you miss
+          this slot it is gone and cannot be rebooked. We do not email a
+          confirmation, so keep this screenshot.
+        </div>
+      </div>
+
+      <button className="btn-ghost" onClick={onAnother}>Book another entry</button>
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{
+      borderTop: '1px solid var(--edge)', marginTop: 36, paddingTop: 22,
+      fontSize: 13, color: 'var(--text-soft)', lineHeight: 1.75,
+    }}>
+      Cannot find your registration ID, or need to move a slot you have booked?{' '}
+      <a href={FB_URL} target="_blank" rel="noopener"
+        style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+        Message us on Facebook
+      </a>{' '}or email{' '}
+      <a href={'mailto:' + CONTACT_EMAIL}
+        style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+        {CONTACT_EMAIL}
+      </a>.
+      <div style={{ marginTop: 11, fontSize: 12 }}>
+        Kreation Philippines · 37 I{'\u00f1'}igo St, Poblacion, Davao
+      </div>
+    </footer>
+  );
+}
+
+function App() {
+  const [slots, setSlots] = useState(null);
+  const [picked, setPicked] = useState(null);
+  const [groupName, setGroupName] = useState('');
+  const [code, setCode] = useState('');
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const poll = useRef(null);
+
+  const load = useCallback(async () => {
+    const r = await supabase.rpc('rehearsal_availability');
+    if (r.error) {
+      setLoadError('We could not load the schedule. Refresh, or message us if it keeps happening.');
+      return;
+    }
+    setLoadError('');
+    setSlots(r.data || []);
+  }, []);
+
+  // The schedule is public. Availability returns times and states only, never
+  // who holds what, so gating the browse behind a lookup was pure friction —
+  // anyone simply checking whether slots remained hit a login wall first.
+  useEffect(() => { load(); }, [load]);
+
+  // Refresh while browsing, so two groups picking at once see each other.
+  useEffect(() => {
+    if (result) return;
+    poll.current = setInterval(load, 15000);
+    return () => clearInterval(poll.current);
+  }, [result, load]);
+
+  const handleBook = useCallback(async () => {
+    setBusy(true); setError('');
+    // One call. Identity is verified inside the function, and the update is
+    // conditional on the slot still being free, so a race comes back as "taken"
+    // rather than double-booking. Hence no hold step: the gap between picking
+    // and submitting is seconds now that identity comes last, and a hold would
+    // add expiry, a countdown and reclaim logic to guard against it.
+    const r = await supabase.rpc('confirm_rehearsal_slot', {
+      p_registration_code: code.trim(),
+      p_group_name: groupName.trim(),
+      p_slot_id: picked.slot_id,
+    });
+    setBusy(false);
+
+    if (r.error) { setError('Something went wrong. Please try again.'); return; }
+    const d = r.data || {};
+    if (!d.ok) {
+      setError(d.error);
+      if (d.taken) { setPicked(null); load(); }
+      return;
+    }
+    setResult({ ...d, slot_date: picked.slot_date,
+                start_time: picked.start_time, end_time: picked.end_time });
+    setPicked(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [code, groupName, picked, load]);
+
+  const another = useCallback(() => {
+    setResult(null); setPicked(null);
+    setGroupName(''); setCode(''); setError('');
+    load();
+  }, [load]);
+
+  const openCount = slots ? slots.filter((s) => s.state === 'open').length : 0;
+
+  return (
+    <div className="wrap">
+      <Masthead openCount={openCount} total={slots ? slots.length : 0} done={!!result} />
+
+      {loadError && (
+        <div style={{
+          padding: '13px 15px', borderRadius: 10, marginBottom: 22,
+          background: 'rgba(255, 27, 107, 0.13)',
+          border: '1px solid rgba(255, 27, 107, 0.42)',
+          fontSize: 13.5, color: '#FFB3C6',
+        }}>{loadError}</div>
+      )}
+
+      {result ? (
+        <Booked result={result} onAnother={another} />
+      ) : slots === null ? (
+        <div className="mono" style={{
+          fontSize: 13, color: 'var(--text-soft)', padding: '30px 0',
+        }}>Loading the schedule{'\u2026'}</div>
+      ) : openCount === 0 ? (
+        <div style={{
+          border: '1px solid var(--edge)', background: 'var(--row)',
+          borderRadius: 12, padding: '24px 20px',
+          fontSize: 14.5, color: 'var(--text-muted)', lineHeight: 1.7,
+        }}>
+          Every slot is taken. Message us and we will find you a time.
+        </div>
+      ) : (
+        <Rail slots={slots} picked={picked} onPick={setPicked} disabled={busy} />
+      )}
+
+      <Footer />
+
+      {picked && !result && (
+        <BookPanel picked={picked}
+          groupName={groupName} setGroupName={setGroupName}
+          code={code} setCode={setCode}
+          onBook={handleBook} onClear={() => { setPicked(null); setError(''); }}
+          busy={busy} error={error} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
