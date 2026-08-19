@@ -1196,7 +1196,7 @@ async function generateTicketsForOrder(order, currentUserEmail) {
     return batchers[key];
   };
 
-  // The first 50 Regular tickets include a seat; everyone after stands, at the
+  // The first 52 Regular tickets include a seat; everyone after stands, at the
   // same price. Decided at ISSUE time and stamped on the ticket, so a ticket
   // someone is holding can never change meaning. Counted from tickets that
   // exist, which makes the order chronological by verification.
@@ -1204,7 +1204,7 @@ async function generateTicketsForOrder(order, currentUserEmail) {
   // Note the buyer page counts LIVE ORDERS instead, including unverified ones,
   // so it reports fewer seats remaining than this will actually grant. That
   // asymmetry is deliberate: the page under-promises rather than over-promises.
-  const REGULAR_SEATED_CAP = 50;
+  const REGULAR_SEATED_CAP = 52;
   let regularIssued = 0;
   {
     const rc = await supabase.from('tickets')
@@ -1251,7 +1251,7 @@ async function generateTicketsForOrder(order, currentUserEmail) {
       tier_code: tierCode,
       section: tierCode === 'R'
         ? (regularIssued + regularInThisOrder < REGULAR_SEATED_CAP
-            ? 'Upper Box Seated' : 'Upper Box Standing')
+            ? 'Upper Box Seated' : 'Ground Standing')
         : sectionFromTier(tierCode),
       seat_label: seatLabel,
       price: typePrice,
