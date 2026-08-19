@@ -962,7 +962,7 @@ function HomeHero({ event, onBuyTickets }) {
             fontSize: 11, letterSpacing: 2.5, color: 'var(--text-soft)',
             fontWeight: 600,
           }}>
-            FROM ₱230 · LIMITED SEATS
+            SOLD OUT ONLINE · ₱250 AT THE DOOR
           </div>
         </div>
       </div>
@@ -3142,7 +3142,7 @@ function StickyMobileCTA({ onBuyTickets }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         }}
       >
-        GET TICKETS · FROM ₱230 →
+        WALK-IN TICKETS · ₱250 AT THE DOOR →
       </button>
     </div>
   );
@@ -6709,6 +6709,50 @@ function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, 
     <Card>
       <SectionTitle eyebrow="Step 1" title="Choose your tickets" />
 
+      {/* Walk-in banner — audience tiers are sold out online; door sales continue.
+          Cosmetic only. Placed above the tier cards so it reads before the SOLD OUT
+          states rather than after them. */}
+      <div style={{
+        position: 'relative',
+        margin: '0 0 24px',
+        padding: '26px 24px',
+        borderRadius: 18,
+        background: 'linear-gradient(135deg, rgba(255,27,107,0.14) 0%, rgba(199,36,255,0.12) 55%, rgba(0,229,255,0.10) 100%)',
+        border: '1.5px solid rgba(255,27,107,0.45)',
+        boxShadow: '0 0 40px rgba(255,27,107,0.12)',
+        textAlign: 'center',
+        overflow: 'hidden'
+      }}>
+        <div className="font-display" style={{
+          fontSize: 11, fontWeight: 800, letterSpacing: 2.4,
+          color: 'var(--accent)', marginBottom: 12, textTransform: 'uppercase'
+        }}>
+          Online sales closed
+        </div>
+        <div className="font-arcade" style={{
+          fontSize: 'clamp(24px, 5.6vw, 40px)', lineHeight: 1.12,
+          color: 'var(--text)', marginBottom: 14
+        }}>
+          WALK-IN TICKETS<br/>AVAILABLE ON EVENT DAY
+        </div>
+        <div className="font-display" style={{
+          fontSize: 15, fontWeight: 500, lineHeight: 1.55,
+          color: 'rgba(255,255,255,0.82)', maxWidth: 560, margin: '0 auto 18px'
+        }}>
+          No booking, no queue. Come to the ticket desk on <strong>22 August</strong> and
+          pay at the door.
+        </div>
+        <div className="font-display" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          padding: '11px 22px', borderRadius: 999,
+          background: 'var(--brand)', color: '#FFFFFF',
+          fontSize: 15, fontWeight: 800, letterSpacing: 0.4,
+          whiteSpace: 'nowrap'
+        }}>
+          &#8369;250 &nbsp;·&nbsp; STANDING
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gap: 14 }}>
         {ticketTypes.map(tt => {
           const qty = cart[tt.id] || 0;
@@ -6767,14 +6811,6 @@ function TicketsStep({ ticketTypes, cart, setCart, seats, takenSeatIds, onNext, 
                   <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
                     {peso(tt.price)}{tt.category === 'dancer' ? <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-soft)' }}> / member</span> : ''}
                   </div>
-                  {soldOut && (
-                    <div style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5, color: '#FF6B85' }}>
-                      Sold out online.
-                      <span style={{ color: 'var(--text-soft)' }}>
-                        {' '}Standing tickets at the door on 22 August, {'\u20b1'}250.
-                      </span>
-                    </div>
-                  )}
                   {rem != null && rem > 0 && rem <= 30 && (
                     <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 6, fontWeight: 600 }}>
                       Only {rem} left
